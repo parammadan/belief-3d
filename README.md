@@ -11,9 +11,16 @@ hypothesis. Prior work that overlaps with it is listed in
 
 ## Status
 
-**M0 complete** (environment audit, geometry core, minimal MuJoCo RGB-D scene, validated camera
-geometry). See [`PROJECT_STATE.md`](PROJECT_STATE.md) for exactly what is and isn't built.
-Nothing beyond M0 is implemented yet.
+**M0 and M1 complete.** M0: environment audit, geometry core, validated camera geometry.
+M1: Franka Panda with IK and verified grasp physics, a movable-camera viewpoint set, seeded sensor
+noise, occlusion/motion scenarios, and a versioned dataset writer with a validator. See
+[`PROJECT_STATE.md`](PROJECT_STATE.md) for exactly what is and isn't built. Perception, tracking
+and policies (M2+) are not implemented yet.
+
+Controlled occlusion (EXP-M1-002). The top row is overhead, where the plate fully hides the
+blue sphere. The bottom row is the mobile camera, which can still see it:
+
+![](reports/m1/occlusion_strip.png)
 
 | Overhead camera | Mobile camera |
 |---|---|
@@ -26,6 +33,7 @@ Depth back-projected through the camera model lands within 0.3 mm of the true sp
 
 ```bash
 python3.12 -m venv .venv && .venv/bin/pip install -e '.[dev]'
+.venv/bin/python scripts/fetch_assets.py      # Franka Panda from MuJoCo Menagerie (pinned)
 export MUJOCO_GL=cgl        # macOS; use egl or osmesa on Linux
 export PYTHONPATH=.
 .venv/bin/python -m pytest -q

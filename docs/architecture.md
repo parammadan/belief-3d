@@ -3,20 +3,20 @@
 Status key: **[done]** implemented and tested · **[M#]** planned for that milestone.
 
 ```
-sim.environments.TabletopScene  [done: table, 4 primitives, 2 cameras, seeded reset]
+sim.environments.TabletopScene + Scenario  [done: table, Panda, 3–6 objects, 2 cameras, occluder, kicks, seeded]
       │  (MuJoCo state — only sim/ and evaluators may read it)
       ▼
 sim.cameras.RGBDSensor.capture() ──► (Observation, GroundTruth)   [done]
       │ Observation only                       │ GroundTruth only
       ▼                                        ▼
-perception.geometry (SE3, pinhole)  [done]    data writers / evaluators  [M1/M2]
+perception.geometry (SE3, pinhole)  [done]    data writer + validator [done] / evaluators [M2]
 perception.calibration              [M2]
 perception.detection / segmentation [M2 classical, M3 neural]
 perception.pose (ICP/PnP → neural)  [M2 / M3]
 tracking.association (Hungarian)    [M2]
 tracking.filters (EKF), tracking.belief (PF / mixture)  [M2 / M4]
 policies.{fixed,random,information_gain,risk_aware}     [M5]
-manipulation.{grasping,motion,recovery}                 [M6]
+sim.robot.Panda (FK/IK/gripper)  [done]  →  manipulation.{grasping,motion,recovery}  [M6]
       │ action (camera pose / grasp)
       └──────────────► TabletopScene.set_mobile_camera / robot  ───► feedback loop
 ```
@@ -28,8 +28,15 @@ manipulation.{grasping,motion,recovery}                 [M6]
   proprioception from M1).
 - `GroundTruth` (segmentation, object poses, visibility) is produced in the same call. Only
   dataset writers and evaluators may consume it. `tests/unit/test_leakage.py` checks the schema;
-  from M2 an import-graph test will check that no module under `perception/`, `tracking/`,
-  `policies/` or `manipulation/` imports `GroundTruth` or `mujoco`.
+  `tests/unit/test_import_leakage.py` statically checks that nothing under `perception/`,
+  `tracking/`, `policies/`, `manipulation/` or `models/` imports `mujoco`, `sim`, `GroundTruth`
+  or `load_ground_truth`.
+- On disk the same split holds: `obs_*` files (RGB, depth, *reported* K and T_WC) versus `gt_*`
+  files (segmentation, poses, visibility, *true* K and T_WC). `data.loaders.load_observation`
+  never opens a `gt_*` file.
+- The robot interface `sim.robot.Panda` exposes only proprioception and kinematics. Planning code
+  (M6) will receive it as an injected object, so the robot arm can be used without importing
+  `sim`.
 - Camera B's pose in `Observation` is the *commanded* pose. Calibration perturbations (M2) are
   applied to what the inference stack is told, not to the renderer.
 

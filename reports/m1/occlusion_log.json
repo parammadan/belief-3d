@@ -1,0 +1,52 @@
+{
+ "seed": 3,
+ "objects": [
+  "box_red",
+  "cyl_green",
+  "sphere_blue",
+  "box_yellow",
+  "cyl_green_b",
+  "cyl_orange"
+ ],
+ "occluded": "sphere_blue",
+ "occl_frames": [
+  4,
+  8
+ ],
+ "columns": [
+  3,
+  4,
+  7,
+  8
+ ],
+ "visible_fraction": {
+  "overhead": [
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0
+  ],
+  "mobile": [
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   0.109,
+   0.109,
+   1.0,
+   0.361,
+   1.0,
+   1.0,
+   1.0,
+   1.0
+  ]
+ }
+}

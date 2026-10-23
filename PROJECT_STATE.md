@@ -49,7 +49,7 @@ evaluation script on held-out seeds).
 ## Verified tests (actually run)
 
 `MUJOCO_GL=cgl .venv/bin/python -m pytest -q` → **92 passed** (macOS, 2026-10-23); `ruff check .` clean.
-CI: see the latest run at https://github.com/parammadan/belief-3d/actions.
+CI (ubuntu-latest, OSMesa, Panda fetched): **92 passed**, ruff clean — https://github.com/parammadan/belief-3d/actions/runs/40041526869
 
 ## Environment
 

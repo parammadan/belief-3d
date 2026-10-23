@@ -14,3 +14,4 @@ reports/m*/*.npz
 *.engine
 .DS_Store
 MUJOCO_LOG.TXT
+sim/assets/third_party/

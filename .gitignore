@@ -13,3 +13,4 @@ reports/m*/*.npz
 *.onnx
 *.engine
 .DS_Store
+MUJOCO_LOG.TXT

@@ -48,7 +48,7 @@ class RGBDSensor:
         return se3.make_T(R_W_gl @ R_GL_CV, d.cam_xpos[self.cam_id])
 
     def capture(self) -> tuple[Observation, GroundTruth]:
-        m, d, r = self.scene.model, self.scene.data, self.scene.renderer
+        d, r = self.scene.data, self.scene.renderer
         r.update_scene(d, camera=self.camera_name)
         rgb = r.render().copy()
         r.enable_depth_rendering()

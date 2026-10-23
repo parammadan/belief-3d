@@ -33,7 +33,7 @@ def test_depth_image_reconstructs_plane_and_drops_invalid():
     depth = np.full((240, 320), 1.5, dtype=np.float32)
     depth[0, 0] = 0.0
     depth[1, 1] = np.nan
-    P, px = K.depth_to_points(depth)
+    P, _ = K.depth_to_points(depth)
     assert len(P) == 240 * 320 - 2
     assert np.allclose(P[:, 2], 1.5)
     with pytest.raises(ValueError):

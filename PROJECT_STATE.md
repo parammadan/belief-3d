@@ -4,77 +4,95 @@ _Last updated: 2026-10-23_
 
 ## Current milestone
 
-**M0: Environment and research audit. Exit criteria met.**
-**Next: M1, simulation and sensors** (robot arm, viewpoint set, dataset writer, noise).
+**M1: Simulation and sensors. Exit criteria met.** Scene replay is bit-identical (same seed →
+identical sha256 for every dataset file), and projected ground truth aligns with rendered
+observations (validator label-alignment check, 0 errors).
 
-## M0 checklist
+**Next: M2, classical perception baseline** (colour/geometry segmentation, 3D centroid and
+pose from depth, symmetry-aware error metrics, EKF + Hungarian tracking, an independent
+evaluation script on held-out seeds).
 
-- [x] Environment inspected → `reports/env_audit.json` (`scripts/env_audit.py`)
-- [x] GPU access located: NU Explorer `gpu:a100` partition (query only, **no job run**)
-- [x] MuJoCo 3.17.0 installed; `cgl` offscreen backend verified headless
-- [x] Initial literature scan + novelty assessment → `docs/literature_review.md`
-- [x] `docs/research_question.md`, `docs/architecture.md`, `docs/coordinate_frames.md`, `docs/limitations.md`
-- [x] Requirements traceability → `docs/traceability.md`
-- [x] Repo skeleton (master prompt §21)
-- [x] SE(3)/camera CPU reference + unit tests
-- [x] Minimal MuJoCo scene, RGB + depth + segmentation from 2 cameras
-- [x] Geometry validated against simulator state (sub-mm)
-- [x] Reproducible demo → `reports/m0/` (`scripts/m0_demo.py`, EXP-M0-001)
-- [x] CI workflow (GitHub Actions, Linux + OSMesa)
+## Milestones
+
+- [x] **M0**: environment audit, geometry core, minimal scene, validated camera geometry
+- [x] **M1**: robot, viewpoints, noise, scenarios, dataset writer/validator
+- [ ] M2 classical perception · [ ] M3 neural pose · [ ] M4 belief tracking · [ ] M5 active perception
+- [ ] M6 closed-loop manipulation · [ ] M7 systems optimisation · [ ] M8 final study
+
+## M1 checklist
+
+- [x] Franka Panda (Menagerie @ `f3b6013`, Apache-2.0) fetched by `scripts/fetch_assets.py`, sha256-locked
+- [x] Panda attached via `MjSpec`; `panda/tcp` site; parked observe pose (arm covers 4 % of overhead view vs 47 % at home)
+- [x] DLS IK on a scratch `MjData` (never perturbs the sim), joint limits, yaw-symmetric top-down grasp IK
+- [x] Physics check: scripted top-down grasps lift both boxes and the cylinder > 0.12 m
+- [x] Finite viewpoint set for camera B: 14/16 valid (2 blocked by the robot), straight-path clearance via `mj_ray`, travel-time model
+- [x] Seeded noise: RGB, range-dependent depth noise, random + edge dropout, per-episode extrinsic/focal errors (`clean`/`nominal`/`harsh`)
+- [x] Per-object visible fraction (render-in-isolation), robot segmentation label −2
+- [x] Scenarios: 3–6 objects from a 7-object catalog incl. look-alike twins; light/colour jitter; scheduled full occlusion; object kicks
+- [x] Dataset writer: obs_*/gt_* file split, uint16 depth (0.1 mm), versioned manifest with git commit, config hash, per-file sha256
+- [x] Validator: finite depth, shapes, transforms, calibration envelope, timestamps, identities, label alignment, bbox, split, hashes. Negative-tested on 6 corruptions
+- [x] Import-graph leakage test: inference packages cannot import `mujoco`, `sim`, or GT types
+- [x] Throughput and storage measured (EXP-M1-001); demo (EXP-M1-002)
 
 ## Implemented modules
 
 | Module | Purpose |
 |---|---|
-| `perception/geometry/se3.py` | hat/vee, exp/log (degenerate-safe), quaternions, SE(3), geodesic, look_at |
-| `perception/geometry/camera.py` | `PinholeIntrinsics`: project, back-project, depth → points |
-| `data/schemas/observation.py` | `Observation` (inference) / `GroundTruth` (eval) split |
-| `sim/environments/tabletop.py` | Table, 4 primitives, fixed overhead cam, mocap mobile cam, seeded reset |
-| `sim/cameras/rgbd.py` | RGB-D-seg capture, intrinsics from fovy, OpenCV extrinsics, max-range dropout |
+| `perception/geometry/{se3,camera}.py` | SE(3)/SO(3) and pinhole CPU reference |
+| `data/schemas/observation.py`, `splits.py` | Observation/GroundTruth split; disjoint seed-range splits |
+| `data/generators/episodes.py`, `data/loaders.py` | Deterministic episodes → on-disk dataset; obs-only / GT-only loaders |
+| `data/validators/validate.py` | §8 dataset validation (`python -m data.validators.validate <root>`) |
+| `sim/environments/{tabletop,scenario}.py` | Scene (+ optional Panda, occluder, kicks); seeded scenario sampling |
+| `sim/robot/panda.py` | Proprioception, FK, IK, grasp IK, joint-space moves, gripper |
+| `sim/cameras/{rgbd,viewpoints,noise}.py` | RGB-D-seg + visibility; viewpoint set + motion model; noise |
 
 ## Verified tests (actually run)
 
-`MUJOCO_GL=cgl .venv/bin/python -m pytest -q` → **36 passed** (macOS, 2026-10-23).
-CI (ubuntu-latest, OSMesa): **36 passed**, ruff clean — https://github.com/parammadan/belief-3d/actions/runs/40039989867
+`MUJOCO_GL=cgl .venv/bin/python -m pytest -q` → **92 passed** (macOS, 2026-10-23); `ruff check .` clean.
+CI: see the latest run at https://github.com/parammadan/belief-3d/actions.
 
 ## Environment
 
-Apple M1, 8 cores, 8 GB RAM, macOS 26.4, **~2.4 GB free disk**. Python 3.12.13 venv. Apple clang 21,
-**no cmake**. No CUDA locally. Not installed: torch, OpenCV, Open3D, onnxruntime, pybind11.
-Cluster: `ssh explorer` works non-interactively; A100/H200/V100/T4 GPU partitions; CUDA 12.3–13.2 modules.
+Apple M1, 8 cores, 8 GB RAM, macOS 26.4. **Disk: ~1.8 GB free** (falling). Python 3.12.13 venv. Apple clang 21,
+no cmake. No CUDA locally; torch/OpenCV/Open3D not installed. Cluster: `ssh explorer`, `gpu:a100` partition
+(no job run yet; GPU use requires Param's explicit OK).
 
-## Experimental results
+## Experimental results (sanity/infra measurements, not research results)
 
 | ID | Result |
 |---|---|
-| EXP-M0-001 | Sphere back-projection error mean 0.146 mm / max 0.291 mm (overhead), 0.161 / 0.289 mm (mobile). Table-plane error 0.001 mm (overhead), 0.067 mm (oblique mobile). |
-
-These are geometry sanity checks, not research results.
+| EXP-M0-001 | Back-projection onto true sphere surface: mean 0.15 mm, max 0.29 mm. Table plane 0.001–0.067 mm. |
+| EXP-M1-001 | 15.6–15.7 camera-frames/s (2 cams, 320×240, 4–6 objects + isolation renders, M1 Mac). 268–270 KiB per camera frame. 0 validation errors. |
+| EXP-M1-002 | Occlusion demo seed 3: sphere overhead visibility 1.0 → 0.0 for frames 4–7 → 1.0; mobile still sees 11–100 %. |
 
 ## Open defects / risks
 
-1. Disk: 2.4 GB free. Datasets must be generated on the cluster, or kept to smoke-test size here.
-2. CGL depth precision is limited (`ARB_clip_control` warning). Returns >5 m are clamped to no-return.
-3. Two `mujoco.Renderer`s in one process corrupt segmentation on CGL. Use `scene.renderer` only.
-4. Leakage protection is schema-level only. The import-graph test is due in M2.
-5. The literature check is abstract-level. SE(3)-PoseFlow is a serious overlap risk (see review).
+1. **Storage:** ~270 KiB per camera frame, because sensor noise is incompressible. 100k frames ≈ 26 GB, so large sets must go on the cluster.
+2. CGL depth precision is limited; returns >5 m are clamped to no-return.
+3. One `mujoco.Renderer` per process on CGL (a second one corrupts segmentation).
+4. The camera B motion model is abstract (gantry assumption). Path clearance is a straight-line ray test, not a swept volume.
+5. The occluder is contact-free ("hovering"). It is a visibility device, not a physical obstacle.
+6. The Panda's joint-space `move_to` has no collision checking yet (M6). The physics test routes via HOME_Q.
+7. Primitive objects only; held-out *meshes/textures* per split are not implemented yet (only held-out seeds).
+8. Literature review is still abstract-level (SE(3)-PoseFlow is the main overlap risk).
+9. Spawn region changed in M1 (robot reach). M0 scenes rendered at the current commit differ from `reports/m0/` (EXP-M0-001 is tied to its commit).
 
-## Remaining work (next steps, M1)
+## Remaining work: M2
 
-1. Add an arm + parallel gripper (candidate: MuJoCo Menagerie Franka Panda or UR5e + Robotiq;
-   check licenses and disk size first).
-2. A finite set of reachable, collision-free viewpoints for camera B.
-3. Depth noise / dropout / RGB noise / extrinsic-perturbation models (seeded).
-4. Dataset writer + versioned manifest + validators (§8). Measure throughput and MB/frame first.
-5. Replay test: the same seed and actions give bit-identical observations across runs.
+1. Classical detector: colour + depth segmentation → instance masks (no GT masks at inference).
+2. 3D centroid / plane removal / outlier rejection; known-geometry pose fit (primitive-specific, then ICP).
+3. Symmetry-aware pose error (box 8-fold proper group, cylinder continuous about z + flip, sphere translation-only).
+4. EKF tracker (constant velocity) + Hungarian association; ID-switch / fragmentation metrics.
+5. `benchmarks/perception/eval_m2.py`: an independent evaluator reading GT files only, on held-out `val` seeds.
 
 ## Exact commands to continue
 
 ```bash
 cd ~/belief-3d
 python3.12 -m venv .venv && .venv/bin/pip install -e '.[dev]'   # if .venv is missing
+.venv/bin/python scripts/fetch_assets.py                         # Panda assets (35 MB, git-ignored)
 export MUJOCO_GL=cgl PYTHONPATH=.
 .venv/bin/python -m pytest -q
-.venv/bin/python scripts/env_audit.py
-.venv/bin/python scripts/m0_demo.py --seed 0
+.venv/bin/python scripts/generate_dataset.py --out datasets/smoke --episodes 3 --frames 10
+.venv/bin/python scripts/m1_demo.py --seed 3
 ```

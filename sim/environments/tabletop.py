@@ -22,6 +22,8 @@ ROBOT_BASE_POS = (-0.40, 0.0, TABLE_TOP_Z)
 # Panda's top-down workspace and away from its base.
 SPAWN_BOUNDS = ((-0.12, -0.22), (0.28, 0.22))
 PANDA_XML = Path(__file__).resolve().parents[1] / "assets/third_party/franka_emika_panda/panda.xml"
+# Hovering, contact-free plate used to create controlled occlusion intervals.
+OCCLUDER_PARK = (2.0, 2.0, 0.5)
 # Geom groups: 0 static scene, 2/3 Panda visual/collision (Menagerie),
 # 4 objects, 5 reserved for rendering one object in isolation.
 OBJECT_GROUP, ISOLATE_GROUP = 4, 5
@@ -41,6 +43,15 @@ DEFAULT_OBJECTS: tuple[ObjectSpec, ...] = (
     ObjectSpec("cyl_green", "cylinder", (0.025, 0.035), (0.15, 0.75, 0.25, 1), "cylindrical_z"),
     ObjectSpec("sphere_blue", "sphere", (0.028,), (0.15, 0.30, 0.85, 1), "spherical"),
     ObjectSpec("box_yellow", "box", (0.040, 0.015, 0.015), (0.90, 0.80, 0.10, 1), "box"),
+)
+
+
+# Catalog for scenario sampling. "_b" entries look identical to their twin
+# (same shape, size, colour) to create similar-instance ambiguity.
+CATALOG: tuple[ObjectSpec, ...] = DEFAULT_OBJECTS + (
+    ObjectSpec("box_red_b", "box", (0.030, 0.020, 0.025), (0.85, 0.15, 0.15, 1), "box"),
+    ObjectSpec("cyl_green_b", "cylinder", (0.025, 0.035), (0.15, 0.75, 0.25, 1), "cylindrical_z"),
+    ObjectSpec("cyl_orange", "cylinder", (0.020, 0.045), (0.95, 0.50, 0.10, 1), "cylindrical_z"),
 )
 
 
@@ -72,6 +83,9 @@ def build_xml(objects: tuple[ObjectSpec, ...] = DEFAULT_OBJECTS, width: int = 32
     <camera name="overhead" pos="0 0 {TABLE_TOP_Z + 0.85:.3f}" fovy="58"/>
     <body name="mobile_cam_mount" mocap="true" pos="0.5 -0.5 1.0">
       <camera name="mobile" fovy="58"/>
+    </body>
+    <body name="occluder" mocap="true" pos="{OCCLUDER_PARK[0]} {OCCLUDER_PARK[1]} {OCCLUDER_PARK[2]}">
+      <geom name="occluder_geom" type="box" size="0.07 0.07 0.004" rgba="0.45 0.45 0.5 1" contype="0" conaffinity="0"/>
     </body>
     {''.join(_object_xml(o) for o in objects)}
   </worldbody>
@@ -115,6 +129,7 @@ class TabletopScene:
             for o in objects
         ]
         self._mocap_id = self.model.body_mocapid[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "mobile_cam_mount")]
+        self._occluder_id = self.model.body_mocapid[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "occluder")]
         self._renderer: mujoco.Renderer | None = None
         self.robot = None
         if with_robot:
@@ -156,6 +171,17 @@ class TabletopScene:
         mujoco.mj_forward(self.model, self.data)
         for _ in range(settle_steps):
             mujoco.mj_step(self.model, self.data)
+
+    def set_occluder(self, pos_W: np.ndarray | None) -> None:
+        """Hover the occluder plate at pos_W (None = park it out of view)."""
+        self.data.mocap_pos[self._occluder_id] = OCCLUDER_PARK if pos_W is None else pos_W
+        mujoco.mj_forward(self.model, self.data)
+
+    def kick(self, instance: int, v_xy: np.ndarray) -> None:
+        """Give an object a planar velocity (an 'unexpected' push)."""
+        jid = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"{self.objects[instance].name}_joint")
+        adr = self.model.jnt_dofadr[jid]
+        self.data.qvel[adr:adr + 2] = v_xy
 
     def set_mobile_camera(self, T_WC: np.ndarray) -> None:
         """Command camera B with an OpenCV-convention pose T_WC."""

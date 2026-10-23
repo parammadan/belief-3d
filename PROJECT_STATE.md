@@ -35,7 +35,7 @@ _Last updated: 2026-10-23_
 ## Verified tests (actually run)
 
 `MUJOCO_GL=cgl .venv/bin/python -m pytest -q` → **36 passed** (macOS, 2026-10-23).
-CI status: see the latest GitHub Actions run (not yet confirmed at time of writing).
+CI (ubuntu-latest, OSMesa): **36 passed**, ruff clean — https://github.com/parammadan/belief-3d/actions/runs/40039989867
 
 ## Environment
 

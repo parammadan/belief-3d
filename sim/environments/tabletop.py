@@ -1,11 +1,14 @@
 """Minimal MuJoCo tabletop scene (M0): table, primitive objects, two RGB-D cameras.
 
 Camera A ("overhead") is fixed. Camera B ("mobile") hangs from a mocap body so
-its pose can be commanded. No robot yet — the arm arrives in M1.
+its pose can be commanded. With `with_robot=True` a Franka Panda (MuJoCo
+Menagerie, Apache-2.0, fetched by scripts/fetch_assets.py) is attached on the
+table's -x edge, with a `panda/tcp` site 0.1034 m past the flange.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 import mujoco
 import numpy as np
@@ -14,6 +17,14 @@ from perception.geometry import se3
 
 TABLE_TOP_Z = 0.40          # meters, world frame
 TABLE_HALF = (0.45, 0.35)   # half-extents x, y
+ROBOT_BASE_POS = (-0.40, 0.0, TABLE_TOP_Z)
+# Objects are spawned in this table region (world x, y bounds): inside the
+# Panda's top-down workspace and away from its base.
+SPAWN_BOUNDS = ((-0.12, -0.22), (0.28, 0.22))
+PANDA_XML = Path(__file__).resolve().parents[1] / "assets/third_party/franka_emika_panda/panda.xml"
+# Geom groups: 0 static scene, 2/3 Panda visual/collision (Menagerie),
+# 4 objects, 5 reserved for rendering one object in isolation.
+OBJECT_GROUP, ISOLATE_GROUP = 4, 5
 
 
 @dataclass(frozen=True)
@@ -39,7 +50,7 @@ def _object_xml(o: ObjectSpec) -> str:
     return (
         f'<body name="{o.name}" pos="0 0 1">'
         f'<freejoint name="{o.name}_joint"/>'
-        f'<geom name="{o.name}_geom" type="{o.shape}" size="{size}" rgba="{rgba}" '
+        f'<geom name="{o.name}_geom" type="{o.shape}" size="{size}" rgba="{rgba}" group="{OBJECT_GROUP}" '
         f'mass="0.1" friction="1 0.005 0.0001"/></body>'
     )
 
@@ -48,7 +59,7 @@ def build_xml(objects: tuple[ObjectSpec, ...] = DEFAULT_OBJECTS, width: int = 32
     hx, hy = TABLE_HALF
     return f"""
 <mujoco model="belief3d_tabletop">
-  <option timestep="0.002" gravity="0 0 -9.81"/>
+  <option timestep="0.002" gravity="0 0 -9.81" integrator="implicitfast"/>
   <visual>
     <global offwidth="{width}" offheight="{height}"/>
     <map znear="0.01" zfar="50"/>
@@ -73,11 +84,30 @@ def build_xml(objects: tuple[ObjectSpec, ...] = DEFAULT_OBJECTS, width: int = 32
 R_GL_CV = np.diag([1.0, -1.0, -1.0])
 
 
+def build_model(objects: tuple[ObjectSpec, ...], width: int, height: int, with_robot: bool) -> mujoco.MjModel:
+    spec = mujoco.MjSpec.from_string(build_xml(objects, width, height))
+    if with_robot:
+        if not PANDA_XML.exists():
+            raise FileNotFoundError(f"{PANDA_XML} missing — run scripts/fetch_assets.py")
+        panda = mujoco.MjSpec.from_file(str(PANDA_XML))
+        panda.option.integrator = spec.option.integrator   # avoid attach-conflict warning
+        panda.body("hand").add_site(name="tcp", pos=[0.0, 0.0, 0.1034], size=[0.005, 0, 0], group=5)
+        spec.attach(panda, frame=spec.worldbody.add_frame(pos=list(ROBOT_BASE_POS)), prefix="panda/")
+    return spec.compile()
+
+
 class TabletopScene:
-    def __init__(self, objects: tuple[ObjectSpec, ...] = DEFAULT_OBJECTS, width: int = 320, height: int = 240):
+    def __init__(
+        self,
+        objects: tuple[ObjectSpec, ...] = DEFAULT_OBJECTS,
+        width: int = 320,
+        height: int = 240,
+        with_robot: bool = False,
+    ):
         self.objects = objects
         self.width, self.height = width, height
-        self.model = mujoco.MjModel.from_xml_string(build_xml(objects, width, height))
+        self.with_robot = with_robot
+        self.model = build_model(objects, width, height, with_robot)
         self.data = mujoco.MjData(self.model)
         self.body_ids = [mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, o.name) for o in objects]
         self._qpos_adr = [
@@ -86,6 +116,10 @@ class TabletopScene:
         ]
         self._mocap_id = self.model.body_mocapid[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "mobile_cam_mount")]
         self._renderer: mujoco.Renderer | None = None
+        self.robot = None
+        if with_robot:
+            from sim.robot.panda import Panda  # local import: sim.robot depends on this module
+            self.robot = Panda(self.model, self.data)
 
     @property
     def renderer(self) -> mujoco.Renderer:
@@ -105,10 +139,13 @@ class TabletopScene:
         rng = np.random.default_rng(seed)
         mujoco.mj_resetData(self.model, self.data)
         placed: list[np.ndarray] = []
-        hx, hy = TABLE_HALF
+        lo, hi = SPAWN_BOUNDS
+        if self.robot is not None:
+            from sim.robot.panda import OBSERVE_Q
+            self.robot.set_joint_state(OBSERVE_Q)
         for adr in self._qpos_adr:
             for _ in range(200):
-                xy = rng.uniform([-hx * 0.6, -hy * 0.6], [hx * 0.6, hy * 0.6])
+                xy = rng.uniform(lo, hi)
                 if all(np.linalg.norm(xy - p) > 0.11 for p in placed):
                     break
             placed.append(xy)

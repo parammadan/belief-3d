@@ -16,7 +16,8 @@ from dataclasses import asdict, dataclass
 import mujoco
 import numpy as np
 
-from sim.environments.tabletop import CATALOG, DEFAULT_OBJECTS, ObjectSpec, TabletopScene
+from data.schemas.objects import CATALOG, DEFAULT_OBJECTS, ObjectSpec
+from sim.environments.tabletop import TabletopScene
 
 
 @dataclass(frozen=True)

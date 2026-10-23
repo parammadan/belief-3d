@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+# generated artifacts: never commit (provenance tracked in EXPERIMENT_REGISTRY.md)
+datasets/
+checkpoints/
+outputs/
+reports/m*/*.npz
+*.onnx
+*.engine
+.DS_Store

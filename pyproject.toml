@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "belief3d"
+version = "0.0.1"
+description = "Belief-space 3D perception and risk-aware active vision for simulated manipulation"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+# Exact versions verified on the dev machine on 2026-10-23 (see PROJECT_STATE.md).
+dependencies = ["mujoco==3.17.0", "numpy==2.5.4", "scipy==1.18.1", "pyyaml"]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[tool.setuptools.packages.find]
+include = ["sim*", "data*", "perception*", "tracking*", "policies*", "manipulation*", "models*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"

@@ -1,0 +1,29 @@
+{
+  "os": "macOS-26.4-arm64-arm-64bit",
+  "machine": "arm64",
+  "cpu": "Apple M1",
+  "cpu_count": 8,
+  "python": "3.12.13",
+  "cxx": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+  "cmake": null,
+  "nvidia_smi": null,
+  "disk_free_gb": 2.4,
+  "packages": {
+    "mujoco": "3.17.0",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "cv2": null,
+    "open3d": null,
+    "torch": null,
+    "onnxruntime": null,
+    "tensorrt": null,
+    "pybind11": null,
+    "pytest": "9.1.1"
+  },
+  "mujoco_render_backends": {
+    "cgl": "ok depth=0.9016",
+    "glfw": "ok depth=0.9016",
+    "egl": "RuntimeError: invalid value for environment variable MUJOCO_GL: egl",
+    "osmesa": "RuntimeError: invalid value for environment variable MUJOCO_GL: osmesa"
+  }
+}

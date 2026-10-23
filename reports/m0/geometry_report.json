@@ -1,0 +1,120 @@
+{
+  "seed": 0,
+  "mujoco_gl": "cgl",
+  "cameras": {
+    "overhead": {
+      "intrinsics": {
+        "fx": 216.48573063257084,
+        "fy": 216.48573063257084,
+        "cx": 159.5,
+        "cy": 119.5,
+        "width": 320,
+        "height": 240
+      },
+      "T_WC": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0,
+          1.25
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "geometry": {
+        "objects": {
+          "box_red": {
+            "pixels": 202
+          },
+          "cyl_green": {
+            "pixels": 227
+          },
+          "sphere_blue": {
+            "pixels": 170,
+            "sphere_surface_err_mean_mm": 0.1462080487885058,
+            "sphere_surface_err_max_mm": 0.29116773352649494
+          },
+          "box_yellow": {
+            "pixels": 204
+          }
+        },
+        "table_plane_err_mean_mm": 0.001096725463889392,
+        "table_pixels": 40137,
+        "depth_no_return_fraction": 0.0
+      }
+    },
+    "mobile": {
+      "intrinsics": {
+        "fx": 216.48573063257084,
+        "fy": 216.48573063257084,
+        "cx": 159.5,
+        "cy": 119.5,
+        "width": 320,
+        "height": 240
+      },
+      "T_WC": [
+        [
+          0.707107,
+          0.462364,
+          -0.534994,
+          0.45
+        ],
+        [
+          0.707107,
+          -0.462364,
+          0.534994,
+          -0.45
+        ],
+        [
+          0.0,
+          -0.756596,
+          -0.653882,
+          0.95
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "geometry": {
+        "objects": {
+          "box_red": {
+            "pixels": 371
+          },
+          "cyl_green": {
+            "pixels": 182
+          },
+          "sphere_blue": {
+            "pixels": 164,
+            "sphere_surface_err_mean_mm": 0.16139923575761667,
+            "sphere_surface_err_max_mm": 0.28938079840158326
+          },
+          "box_yellow": {
+            "pixels": 289
+          }
+        },
+        "table_plane_err_mean_mm": 0.06737621927489115,
+        "table_pixels": 32087,
+        "depth_no_return_fraction": 0.05744791666666667
+      }
+    }
+  }
+}

@@ -49,7 +49,7 @@ class Episode:
         ss = np.random.SeedSequence(seed).spawn(5)
         self.layout_seed = int(ss[0].generate_state(1)[0])
         self.view_rng, self.calib_rng, self.noise_rng, scen_rng = (np.random.default_rng(s) for s in ss[1:])
-        self.scenario = Scenario.sample(PRESET_SCENARIOS[scenario], scen_rng, n_frames=4)
+        self.scenario = Scenario.sample(PRESET_SCENARIOS[scenario], scen_rng, n_frames=6)
         self.scene = TabletopScene(self.scenario.objects, with_robot=PANDA_XML.exists())
         self.scenario.apply_appearance(self.scene)
         self.scene.reset(seed=self.layout_seed)
@@ -110,13 +110,19 @@ def evaluate_grasp(ep: Episode, spec, g, gt_frame) -> dict:
 
 
 def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: str, rng_seed: int,
-                cameras: tuple[str, ...] = ("overhead", "mobile")) -> dict:
+                cameras: tuple[str, ...] = ("overhead", "mobile"), warmup: int = 1) -> dict:
     ep = Episode(seed, scenario, noise, cameras)
     tracker = BeliefTracker(TrackerConfig(calib_rot_sigma=np.radians(1.0), calib_trans_sigma=0.005),
                             BeliefConfig(), seed=seed)
     t0 = time.perf_counter()
     frames = ep.observe()
     tracks, K = step_tracker(tracker, frames, 0)
+    # Warm-up: one more frame from the SAME starting view for every policy, so single-camera
+    # runs can confirm tracks (confirmation needs 2 hits). Identical across policies; not part
+    # of the movement budget. (Without it, all mobile-only episodes were skipped on val.)
+    for w in range(warmup):
+        frames = ep.observe()
+        tracks, _ = step_tracker(tracker, frames, 100 + w)
     renderer = SignatureRenderer(K)
     risk = TaskRiskPolicy()
     plane = next((tr.belief.plane for tr in tracks if tr.belief.plane is not None), None)
@@ -161,7 +167,7 @@ def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: 
         final_modes, final_risk = len(modes.weights), risk.grasp_now_loss(ctx_for(tgt))
     ep.close()
     return {"seed": seed, "policy": policy_name, "budget": budget, "scenario": scenario, "noise": noise,
-            "cameras": list(cameras),
+            "cameras": list(cameras), "warmup": warmup,
             "target_class": target.spec_name, "init_modes": init_modes, "init_risk": init_risk,
             "ambiguous_t0": bool(init_modes >= 2 or init_risk > 0.1), "views": chosen, "travel_s": travel,
             "final_modes": final_modes, "final_risk": final_risk, "decide_ms_mean": 1e3 * float(np.mean(decide_s)) if decide_s else None,

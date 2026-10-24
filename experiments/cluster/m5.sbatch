@@ -13,8 +13,12 @@ cd /scratch/madan.pa/belief3d/belief-3d
 export PYTHONPATH=. MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa OMP_NUM_THREADS=1
 export LD_LIBRARY_PATH=/scratch/madan.pa/belief3d/mesa24/lib:${LD_LIBRARY_PATH:-}
 i=$SLURM_ARRAY_TASK_ID
+# sbatch --export splits on commas, so list-valued settings are passed colon-separated.
+CAMS_=$(echo "${CAMS:-overhead:mobile}" | tr ':' ',')
+ELEV_=$(echo "${ELEV:-35:60}" | tr ':' ',')
+POL_=$(echo "${POLICIES:-fixed:random:entropy:covariance:task_risk}" | tr ':' ',')
 mkdir -p ../reports/m5/${TAG}
 ../env/bin/python scripts/run_m5.py --split ${SPLIT} --offset $((BASE + i*EPS)) --episodes ${EPS} \
-    --scenario ${SCEN:-occlusion} --noise ${NOISE:-nominal} --budget ${BUDGET:-2} --cameras ${CAMS:-overhead,mobile} \
-    --elevations ${ELEV:-35,60} \
-    --policies ${POLICIES:-fixed,random,entropy,covariance,task_risk} --out ../reports/m5/${TAG}/shard_$(printf %03d $i).jsonl
+    --scenario ${SCEN:-occlusion} --noise ${NOISE:-nominal} --budget ${BUDGET:-2} --cameras $CAMS_ \
+    --elevations $ELEV_ \
+    --policies $POL_ --out ../reports/m5/${TAG}/shard_$(printf %03d $i).jsonl

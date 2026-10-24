@@ -1,38 +1,34 @@
 # PROJECT_STATE
 
-_Last updated: 2026-10-24_
+_Last updated: 2026-10-24 (late)_
 
 ## Current milestone
 
-**M2: Classical perception baseline. Exit criteria met.** An independent evaluator
-(`benchmarks/perception/eval_m2.py`) reads only prediction files and `gt_*` files, and measures
-detection, symmetry-aware pose and CLEAR-MOT tracking errors on held-out **test** seeds
-(EXP-M2-001). Calibration drift effects are quantified in EXP-M2-002.
+**M4: Probabilistic tracking. Exit criteria met.** The belief tracker is mathematically tested
+(24 seed-parametrised property tests) and uncertainty metrics are reported. The pre-registered
+EXP-M4-001 confirmed both hypotheses:
+- **H1:** rotation success on partially visible objects 64.8 % → 87.0 %; paired +0.266,
+  95 % CI [0.129, 0.410], p = 0.0074.
+- **H2:** no MOTA loss in any condition.
 
-**In progress: M4, belief tracking (CPU), started ahead of M3.** M3 (neural pose) is blocked
-on Param's explicit OK for GPU use, so the CPU-only M4 core went first. This is a deliberate,
-recorded deviation from strict milestone order.
+B2 is not uniformly better: about 0.4 mm worse translation under nominal noise, and about
+5,000× slower.
 
-Done so far in M4:
-- **Calibration-aware tracker R.** The pre-registered EXP-M4P-002 is *confirmed*: two-camera
-  MOTA under harsh calibration +0.156, 95 % CI [0.079, 0.242], sign test p = 0.00012 (n = 40).
-- **`tracking/belief/particle.py`.** A multimodal SE(3) particle belief with:
-  - two-sided likelihood: surface agreement plus free space, both in pixel units;
-  - progressive correction with MH resample-move;
-  - mode-preserving resampling with a per-mode kernel;
-  - damped (OU) velocity;
-  - symmetry-aware estimate, spread and mode count.
-  Its properties are tested across 5 seeds.
+**M3 (neural pose), in progress on the cluster.** Data is done (175,599 / 17,599 / 17,789
+samples). pose_v1 is trained: val top-1 mean 4.78 mm, best-of-K 2.64 mm, 6 min 41 s on an A100.
+The test comparison (eval_m3) is running.
 
-Next in M4: plug PoseBelief into the multi-object tracker (B2), evaluate against B1 on val,
-then run a registered test.
+**M5 (active perception), started.** Policies A/B/C1/C2/D and the predictor are built and
+unit-tested; the closed-loop harness `scripts/run_m5.py` has been smoke-tested.
+Literature check done: SE(3)-PoseFlow, ActivePose and POTAMP were read in full and the narrow
+claim stands (see literature_review).
 
 ## Milestones
 
 - [x] **M0**: environment audit, geometry core, minimal scene, validated camera geometry
 - [x] **M1**: robot, viewpoints, noise, scenarios, dataset writer/validator
 - [x] **M2**: classical segmentation, SDF pose fit, completeness, CV-KF + Hungarian tracking, calibration checks, independent evaluator
-- [ ] M3 neural pose · [ ] M4 belief tracking · [ ] M5 active perception
+- [~] M3 neural pose (trained; test eval running) · [x] **M4** belief tracking · [~] M5 active perception (built, not evaluated)
 - [ ] M6 closed-loop manipulation · [ ] M7 systems optimisation · [ ] M8 final study
 
 ## M2 checklist

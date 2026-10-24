@@ -32,6 +32,7 @@ class ScenarioConfig:
     occl_height: float = 0.12                  # m above the target object's centre
     kick_prob: float = 0.0
     kick_speed: tuple[float, float] = (0.2, 0.5)  # m/s
+    min_sep: float = 0.11                      # m between spawned centres; < ~0.09 creates contact clutter
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -42,6 +43,8 @@ PRESET_SCENARIOS: dict[str, ScenarioConfig] = {
     "varied": ScenarioConfig(n_objects=(3, 6), use_catalog=True, light_jitter=0.25, color_jitter=0.12),
     "occlusion": ScenarioConfig(n_objects=(3, 6), use_catalog=True, light_jitter=0.25, color_jitter=0.12,
                                 occlusion_prob=1.0),
+    "clutter": ScenarioConfig(n_objects=(5, 7), use_catalog=True, light_jitter=0.25, color_jitter=0.12,
+                              min_sep=0.075, force_similar_pair=True),
     "dynamic": ScenarioConfig(n_objects=(3, 6), use_catalog=True, light_jitter=0.25, color_jitter=0.12,
                               occlusion_prob=0.5, kick_prob=1.0, force_similar_pair=True),
 }
@@ -58,6 +61,7 @@ class Scenario:
     kick_frame: int | None
     kick_v: tuple[float, float] | None
     occl_height: float = 0.12
+    min_sep: float = 0.11
 
     @staticmethod
     def sample(cfg: ScenarioConfig, rng: np.random.Generator, n_frames: int) -> Scenario:
@@ -89,9 +93,10 @@ class Scenario:
             kick_f = int(rng.integers(1, n_frames))
             ang, spd = rng.uniform(-np.pi, np.pi), rng.uniform(*cfg.kick_speed)
             kick_v = (float(spd * np.cos(ang)), float(spd * np.sin(ang)))
-        return Scenario(objects, float(light), colors, occl_t, occl, kick_t, kick_f, kick_v, cfg.occl_height)
+        return Scenario(objects, float(light), colors, occl_t, occl, kick_t, kick_f, kick_v, cfg.occl_height, cfg.min_sep)
 
     def apply_appearance(self, scene: TabletopScene) -> None:
+        scene.min_sep = self.min_sep
         m = scene.model
         m.light_diffuse[:] = np.clip(m.light_diffuse * self.light_scale, 0, 1)
         m.vis.headlight.ambient[:] = np.clip(np.asarray(m.vis.headlight.ambient) * self.light_scale, 0, 1)

@@ -126,6 +126,7 @@ class TabletopScene:
         self._mocap_id = self.model.body_mocapid[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "mobile_cam_mount")]
         self._occluder_id = self.model.body_mocapid[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "occluder")]
         self._renderer: mujoco.Renderer | None = None
+        self.min_sep = 0.11           # m between spawned object centres (scenario may tighten it)
         self.robot = None
         if with_robot:
             from sim.robot.panda import Panda  # local import: sim.robot depends on this module
@@ -156,7 +157,7 @@ class TabletopScene:
         for adr in self._qpos_adr:
             for _ in range(200):
                 xy = rng.uniform(lo, hi)
-                if all(np.linalg.norm(xy - p) > 0.11 for p in placed):
+                if all(np.linalg.norm(xy - p) > self.min_sep for p in placed):
                     break
             placed.append(xy)
             yaw = rng.uniform(-np.pi, np.pi)

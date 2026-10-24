@@ -142,7 +142,7 @@ on `dynamic`/`nominal` and `dynamic`/`harsh`.
 | ID | Date | Commit | Command | Seeds | Env | Output | Status |
 |---|---|---|---|---|---|---|---|
 | VAL-M4-001 | 2026-10-24 | `19bb083` | `bash experiments/scripts/val_m4_001.sh` | val 1,500,400–1,500,405 (6 eps × 15 frames per condition) | M1 Mac | `reports/m4/val_m4_*_{b1,b2}.json` | done (dev) |
-| VAL-M4-003 | 2026-10-24 | `e1f5589` | `bash experiments/scripts/val_m4_003.sh` | same datasets as VAL-M4-001 | M1 Mac | `reports/m4/val_m4_*_v3_*.json` | running |
+| VAL-M4-003 | 2026-10-24 | `e1f5589` | `bash experiments/scripts/val_m4_003.sh` | same datasets as VAL-M4-001 | M1 Mac | superseded by v4 (interrupted by session close) | superseded |
 
 ## VAL-M4-001: B1 (CV-Kalman) vs B2 (particle belief), same detections, val only
 
@@ -228,3 +228,26 @@ predict + re-identification. On all four val conditions, B2 equals B1 in MOTA, I
   steps, 1 min 23 s wall, 22.4k samples/s, A100) reached val best-of-K mean 3.25 mm
   (median 2.17) and top-1 mean 5.59 mm (median 3.04), with 47 % of top-1 predictions under
   2 mm. The top-1 vs best-of-K gap shows a weak confidence head.
+
+## EXP-M4-001 RESULT (pre-registered above; B2 frozen at `c45e7e0`; analysed with the pre-committed `experiments/analysis/m4_h1.py`)
+
+| Hypothesis | Result |
+|---|---|
+| **H1 (primary): CONFIRMED.** Rotation-success rate (< 5°) on partially visible tracked frames, pooled over occlusion nominal + harsh | B1 64.8 % → **B2 87.0 %** (108 frames, 42 episodes). Per-episode paired mean **+0.266**, bootstrap 95 % CI **[0.129, 0.410]**; 13 episodes better / 2 worse / 27 tied; exact sign test **p = 0.0074** |
+| **H2 (non-inferiority): CONFIRMED.** MOTA(B2) ≥ MOTA(B1) − 0.01 in every condition | occlusion/nominal 0.983 = 0.983; occlusion/harsh 0.977 → 0.979; dynamic/nominal 0.995 = 0.995; dynamic/harsh 0.969 = 0.969 |
+
+**Secondary (descriptive; full table in `reports/m4/exp_m4_001_secondary.txt`).**
+- **Nominal noise favours B1 overall.** Median translation B1 0.24–0.25 mm vs B2 0.62–0.64 mm
+  (Monte Carlo noise); median rotation 0.52–0.57° vs 0.67–0.81°; overall success
+  (1 cm & 5°) B1 0.985 / 0.995 vs B2 0.972 / 0.966.
+- **Harsh noise:** B2 has the better rotation (2.52 / 3.03° vs 3.85 / 4.38°) and overall success
+  (0.269 / 0.188 vs 0.206 / 0.177); translation is equal (~13 mm, calibration-limited).
+- **Coverage:** both are over-conservative under nominal (1.00 at every level). Under harsh, B2
+  is 0.80/0.97/1.00 vs B1 0.73/0.92/0.97 at 50/80/95 %.
+- **Cost:** B2 takes 2.4–3.0 s per frame vs 0.5–0.6 ms for B1 (CPU, 256 particles).
+
+**Interpretation.** The multimodal belief delivers its targeted benefit — correct orientation when
+single views are ambiguous — with statistically significant effect and no tracking penalty. It does
+not dominate: under nominal conditions its Monte Carlo approximation costs ~0.4 mm and a small
+amount of overall success, and it is ~5,000× slower. Both are M7 targets (refinement of the
+reported estimate; vectorised/compiled likelihood).

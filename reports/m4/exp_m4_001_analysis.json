@@ -1,0 +1,40 @@
+{
+ "H1": {
+  "n_episodes": 42,
+  "mean_diff": 0.26587301587301587,
+  "ci95": [
+   0.1285714285714286,
+   0.4095238095238095
+  ],
+  "episodes_b2_better": 13,
+  "episodes_b2_worse": 2,
+  "sign_test_p": 0.00738525390625,
+  "frames_b1": 108,
+  "frames_b2": 108,
+  "pooled_rate_b1": 0.6481481481481481,
+  "pooled_rate_b2": 0.8703703703703703
+ },
+ "H2": {
+  "occlusion_nominal": {
+   "MOTA_b1": 0.9828571428571429,
+   "MOTA_b2": 0.9828571428571429,
+   "non_inferior": true
+  },
+  "occlusion_harsh": {
+   "MOTA_b1": 0.9766666666666667,
+   "MOTA_b2": 0.9785714285714285,
+   "non_inferior": true
+  },
+  "dynamic_nominal": {
+   "MOTA_b1": 0.9947712418300654,
+   "MOTA_b2": 0.9947712418300654,
+   "non_inferior": true
+  },
+  "dynamic_harsh": {
+   "MOTA_b1": 0.9686274509803922,
+   "MOTA_b2": 0.9686274509803922,
+   "non_inferior": true
+  }
+ },
+ "H2_all_pass": true
+}

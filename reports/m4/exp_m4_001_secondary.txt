@@ -1,0 +1,8 @@
+occlusion_nominal  b1 t_med   0.24 mm  r_med  0.52 deg  succ 0.985  cov50/80/95 1.00/1.00/1.00  tracker 0.5 ms/frame
+occlusion_nominal  b2 t_med   0.64 mm  r_med  0.67 deg  succ 0.972  cov50/80/95 1.00/1.00/1.00  tracker 2415.6 ms/frame
+occlusion_harsh    b1 t_med  12.93 mm  r_med  3.85 deg  succ 0.206  cov50/80/95 0.73/0.92/0.99  tracker 0.6 ms/frame
+occlusion_harsh    b2 t_med  13.10 mm  r_med  2.52 deg  succ 0.269  cov50/80/95 0.80/0.97/1.00  tracker 2907.7 ms/frame
+dynamic_nominal    b1 t_med   0.25 mm  r_med  0.57 deg  succ 0.995  cov50/80/95 1.00/1.00/1.00  tracker 0.6 ms/frame
+dynamic_nominal    b2 t_med   0.62 mm  r_med  0.81 deg  succ 0.966  cov50/80/95 1.00/1.00/1.00  tracker 2930.6 ms/frame
+dynamic_harsh      b1 t_med  12.15 mm  r_med  4.38 deg  succ 0.177  cov50/80/95 0.74/0.92/0.97  tracker 0.6 ms/frame
+dynamic_harsh      b2 t_med  13.02 mm  r_med  3.03 deg  succ 0.188  cov50/80/95 0.84/0.99/1.00  tracker 2983.2 ms/frame

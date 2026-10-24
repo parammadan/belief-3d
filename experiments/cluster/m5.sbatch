@@ -21,4 +21,4 @@ mkdir -p ../reports/m5/${TAG}
 ../env/bin/python scripts/run_m5.py --split ${SPLIT} --offset $((BASE + i*EPS)) --episodes ${EPS} \
     --scenario ${SCEN:-occlusion} --noise ${NOISE:-nominal} --budget ${BUDGET:-2} --cameras $CAMS_ \
     --elevations $ELEV_ \
-    --policies $POL_ --out ../reports/m5/${TAG}/shard_$(printf %03d $i).jsonl
+    --policies $POL_ ${PHYS:+--physical} --out ../reports/m5/${TAG}/shard_$(printf %03d $i).jsonl

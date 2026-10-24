@@ -45,7 +45,8 @@ SPEC = {o.name: o for o in CATALOG}
 class Episode:
     """Simulator side of one episode (owns ground truth; never handed to the policy)."""
 
-    def __init__(self, seed: int, scenario: str, noise: str, cameras: tuple[str, ...] = ("overhead", "mobile")):
+    def __init__(self, seed: int, scenario: str, noise: str, cameras: tuple[str, ...] = ("overhead", "mobile"),
+                 elevations: tuple[float, ...] = (35.0, 60.0)):
         ss = np.random.SeedSequence(seed).spawn(5)
         self.layout_seed = int(ss[0].generate_state(1)[0])
         self.view_rng, self.calib_rng, self.noise_rng, scen_rng = (np.random.default_rng(s) for s in ss[1:])
@@ -53,7 +54,7 @@ class Episode:
         self.scene = TabletopScene(self.scenario.objects, with_robot=PANDA_XML.exists())
         self.scenario.apply_appearance(self.scene)
         self.scene.reset(seed=self.layout_seed)
-        self.views = ViewpointSet(self.scene)
+        self.views = ViewpointSet(self.scene, elevations_deg=elevations)
         self.noise = PRESETS[noise]
         self.sensors = {c: RGBDSensor(self.scene, c, compute_visibility=False) for c in cameras}
         self.calib = {c: CalibrationError.sample(self.noise, self.calib_rng) for c in self.sensors}
@@ -110,8 +111,9 @@ def evaluate_grasp(ep: Episode, spec, g, gt_frame) -> dict:
 
 
 def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: str, rng_seed: int,
-                cameras: tuple[str, ...] = ("overhead", "mobile"), warmup: int = 1) -> dict:
-    ep = Episode(seed, scenario, noise, cameras)
+                cameras: tuple[str, ...] = ("overhead", "mobile"), warmup: int = 1,
+                elevations: tuple[float, ...] = (35.0, 60.0)) -> dict:
+    ep = Episode(seed, scenario, noise, cameras, elevations)
     tracker = BeliefTracker(TrackerConfig(calib_rot_sigma=np.radians(1.0), calib_trans_sigma=0.005),
                             BeliefConfig(), seed=seed)
     t0 = time.perf_counter()
@@ -167,7 +169,7 @@ def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: 
         final_modes, final_risk = len(modes.weights), risk.grasp_now_loss(ctx_for(tgt))
     ep.close()
     return {"seed": seed, "policy": policy_name, "budget": budget, "scenario": scenario, "noise": noise,
-            "cameras": list(cameras), "warmup": warmup,
+            "cameras": list(cameras), "warmup": warmup, "elevations": list(elevations),
             "target_class": target.spec_name, "init_modes": init_modes, "init_risk": init_risk,
             "ambiguous_t0": bool(init_modes >= 2 or init_risk > 0.1), "views": chosen, "travel_s": travel,
             "final_modes": final_modes, "final_risk": final_risk, "decide_ms_mean": 1e3 * float(np.mean(decide_s)) if decide_s else None,
@@ -184,9 +186,11 @@ def main() -> None:
     ap.add_argument("--scenario", default="occlusion")
     ap.add_argument("--noise", default="nominal")
     ap.add_argument("--cameras", default="overhead,mobile")
+    ap.add_argument("--elevations", default="35,60", help="candidate-view elevations in degrees")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     cams = tuple(a.cameras.split(","))
+    elev = tuple(float(x) for x in a.elevations.split(","))
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     done = set()
@@ -199,7 +203,8 @@ def main() -> None:
             for p in a.policies.split(","):
                 if (seed, p) in done:
                     continue
-                r = run_episode(seed, p, a.budget, a.scenario, a.noise, rng_seed=seed + 17, cameras=cams)
+                r = run_episode(seed, p, a.budget, a.scenario, a.noise, rng_seed=seed + 17, cameras=cams,
+                                elevations=elev)
                 f.write(json.dumps(r) + "\n")
                 f.flush()
                 print(json.dumps({k: r.get(k) for k in ("seed", "policy", "ambiguous_t0", "views", "success", "wall_s")}))

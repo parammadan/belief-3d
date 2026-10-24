@@ -264,3 +264,6 @@ class CalibratedTaskRiskPolicy(TaskRiskPolicy):
 
 POLICIES = {p.name: p for p in (FixedPolicy, RandomPolicy, EntropyPolicy, CovariancePolicy, TaskRiskPolicy,
                                 CalibratedTaskRiskPolicy)}
+# Travel-penalty variants for val selection of lambda (VAL-M5-005).
+POLICIES["task_risk_cal_l0"] = lambda: CalibratedTaskRiskPolicy(lam=0.0)
+POLICIES["task_risk_cal_l005"] = lambda: CalibratedTaskRiskPolicy(lam=0.005)

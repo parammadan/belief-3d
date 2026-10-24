@@ -125,16 +125,25 @@ def physical_grasp(ep: Episode, g: dict, target_color: str) -> dict:
             "finger_width": res.finger_width}
 
 
+def feed_selfcal(calibs: dict, tracker, frames) -> None:
+    """Add this frame's matched track centres, with each camera's reported pose, to its calibrator."""
+    for tid, cam, p in tracker.last_matches:
+        calibs[cam].add(tid, frames[cam][0].T_WC, p)
+
+
 def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: str, rng_seed: int,
                 cameras: tuple[str, ...] = ("overhead", "mobile"), warmup: int = 1,
-                elevations: tuple[float, ...] = (35.0, 60.0), physical: bool = False) -> dict:
+                elevations: tuple[float, ...] = (35.0, 60.0), physical: bool = False, selfcal: bool = False) -> dict:
     ep = Episode(seed, scenario, noise, cameras, elevations)
     tracker = BeliefTracker(TrackerConfig(calib_rot_sigma=np.radians(1.0), calib_trans_sigma=0.005),
                             BeliefConfig(), seed=seed)
     t0 = time.perf_counter()
     history: list[int] = []              # views observed this episode (calibration-aware policy input)
+    from perception.calibration.self_calib import SelfCalibrator
+    calibs = {c: SelfCalibrator() for c in cameras}
     frames = ep.observe()
     tracks, K = step_tracker(tracker, frames, 0)
+    feed_selfcal(calibs, tracker, frames)
     history.append(ep.view)
     # Warm-up: one more frame from the SAME starting view for every policy, so single-camera
     # runs can confirm tracks (confirmation needs 2 hits). Identical across policies; not part
@@ -142,6 +151,7 @@ def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: 
     for w in range(warmup):
         frames = ep.observe()
         tracks, _ = step_tracker(tracker, frames, 100 + w)
+        feed_selfcal(calibs, tracker, frames)
     renderer = SignatureRenderer(K)
     risk = TaskRiskPolicy()
     plane = next((tr.belief.plane for tr in tracks if tr.belief.plane is not None), None)
@@ -175,6 +185,7 @@ def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: 
         history.append(v)
         frames = ep.observe()
         step_tracker(tracker, frames, k)
+        feed_selfcal(calibs, tracker, frames)
     tgt = next((tr for tr in tracker.tracks if tr.track_id == tid), None)
     gt_frame = next(iter(frames.values()))[1]
     if tgt is None:
@@ -184,6 +195,22 @@ def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: 
         modes = modes_of(tgt.belief)
         i = int(np.argmax(modes.weights))
         g = plan_grasp(SPEC[tgt.spec_name], modes.poses[i])
+        selfcal_shift = None
+        if selfcal:
+            # Correct the grasp centre by the estimated mean calibration bias over the views in which
+            # the target was observed (per camera; summed over cameras weighted by observation count).
+            p0 = g["p"].copy()
+            shifts, counts = [], []
+            for sc in calibs.values():
+                views_t = [T for key, T, _ in sc.obs if key == tid]
+                if views_t:
+                    sc.solve()
+                    shifts.append(p0 - sc.correct(p0, views_t))
+                    counts.append(len(views_t))
+            if shifts:
+                bias = np.average(np.array(shifts), axis=0, weights=counts)
+                g["p"] = p0 - bias
+                selfcal_shift = bias.tolist()
         result = evaluate_grasp(ep, SPEC[tgt.spec_name], g, gt_frame)
         result["proxy_success"] = result.pop("success")
         if physical:
@@ -194,6 +221,7 @@ def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: 
     ep.close()
     return {"seed": seed, "policy": policy_name, "budget": budget, "scenario": scenario, "noise": noise,
             "cameras": list(cameras), "warmup": warmup, "elevations": list(elevations), "physical": physical,
+            "selfcal": selfcal, "selfcal_shift": selfcal_shift if tgt is not None else None,
             "target_class": target.spec_name, "init_modes": init_modes, "init_risk": init_risk,
             "ambiguous_t0": bool(init_modes >= 2 or init_risk > 0.1), "views": chosen, "travel_s": travel,
             "final_modes": final_modes, "final_risk": final_risk, "decide_ms_mean": 1e3 * float(np.mean(decide_s)) if decide_s else None,
@@ -212,6 +240,7 @@ def main() -> None:
     ap.add_argument("--cameras", default="overhead,mobile")
     ap.add_argument("--elevations", default="35,60", help="candidate-view elevations in degrees")
     ap.add_argument("--physical", action="store_true", help="score the final grasp by executing it in MuJoCo")
+    ap.add_argument("--selfcal", action="store_true", help="correct the grasp centre with online self-calibration")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     cams = tuple(a.cameras.split(","))
@@ -229,7 +258,9 @@ def main() -> None:
                 if (seed, p) in done:
                     continue
                 r = run_episode(seed, p, a.budget, a.scenario, a.noise, rng_seed=seed + 17, cameras=cams,
-                                elevations=elev, physical=a.physical)
+                                elevations=elev, physical=a.physical, selfcal=a.selfcal)
+                if a.selfcal:
+                    r["policy"] = p + "+selfcal"
                 f.write(json.dumps(r) + "\n")
                 f.flush()
                 print(json.dumps({k: r.get(k) for k in ("seed", "policy", "ambiguous_t0", "views", "success", "wall_s")}))

@@ -147,6 +147,8 @@ class BeliefTracker:
         self.t = t
         for tr in self.tracks:
             tr.belief.predict(t)
+        offs: dict[str, np.ndarray] = {}
+        self.last_matches: list[tuple[int, str, np.ndarray]] = []   # (track id, camera, RAW det centre)
         if self.relative_calibration:
             offs = self._relative_offsets(detections)
             self.last_offsets = offs
@@ -182,6 +184,8 @@ class BeliefTracker:
                 tr.hits += 1
                 updated.add(tr.track_id)
                 cams_seen[tr.track_id] = cams_seen.get(tr.track_id, 0) + 1
+                # raw (pre-consensus-shift) centre, for extrinsic self-calibration
+                self.last_matches.append((tr.track_id, cam, d.T_WO[:3, 3] - offs.get(cam, np.zeros(3))))
             for j in unmatched:
                 d = dets[j]
                 if d.completeness < self.cfg.min_spawn_completeness or d.points_W is None:

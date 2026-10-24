@@ -49,10 +49,10 @@ def probe(seed, scenario, noise, cams):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--episodes", type=int, default=12)
+    ap.add_argument("--regimes", default="occlusion:nominal:mobile,occlusion:harsh:mobile,clutter:nominal:mobile,"
+                                         "clutter:harsh:mobile,clutter:nominal:overhead+mobile")
     a = ap.parse_args()
-    regimes = [("occlusion", "nominal", ("mobile",)), ("occlusion", "harsh", ("mobile",)),
-               ("clutter", "nominal", ("mobile",)), ("clutter", "harsh", ("mobile",)),
-               ("clutter", "nominal", ("overhead", "mobile"))]
+    regimes = [(r.split(":")[0], r.split(":")[1], tuple(r.split(":")[2].split("+"))) for r in a.regimes.split(",")]
     for sc, nz, cams in regimes:
         rows = [probe(s, sc, nz, cams) for s in seeds_for("val", a.episodes, 800)]
         rows = [r for r in rows if r]

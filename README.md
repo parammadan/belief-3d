@@ -21,6 +21,7 @@ held-out test split, with the method frozen first; most were pre-registered. See
 | M3 neural pose | Neural proposals + geometric refinement: success on < 50 %-visible objects 0.985 vs 0.853 for the classical fit, at half its time. The network alone is worse (0.735). |
 | M4 belief tracking | **Pre-registered.** Multimodal SE(3) belief vs Kalman tracker. Rotation success on partly visible objects 64.8 % → 87.0 % (paired +0.27, p = 0.007); no MOTA loss. ~0.4 mm worse translation; ~5,000× slower. |
 | M5 active vision (1) | **Pre-registered: H3 not supported.** Task-risk view selection ignoring calibration never moved and tied with fixed (0.49); *random* won (0.63). |
+| M5 + self-calibration | **Pre-registered: confirmed.** Online extrinsic self-calibration from known objects across diverse views: 0.767 vs 0.640 without (+0.127, p = 0.003). A fixed camera shows exactly 0 effect, as predicted. Full system vs fixed camera: 0.513 → 0.767. |
 | M5 active vision (2) | **Pre-registered: confirmed.** Calibration-aware task-risk: 0.667 vs 0.533 (entropy / covariance) and 0.520 (original), Holm p = 0.008. It picks views whose calibration biases cancel; ≈ random (+0.03, n.s.). |
 
 The take-away so far: *a task-aware view objective helps only when its loss model contains the

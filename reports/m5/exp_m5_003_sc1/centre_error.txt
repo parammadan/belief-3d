@@ -1,0 +1,6 @@
+fixed                        centre_err median 17.54 mm  mean 19.38 mm  median correction  0.00 mm
+fixed+selfcal                centre_err median 17.65 mm  mean 19.38 mm  median correction  0.00 mm
+random                       centre_err median 14.73 mm  mean 15.79 mm  median correction  0.00 mm
+random+selfcal               centre_err median  9.33 mm  mean 11.52 mm  median correction 11.58 mm
+task_risk_cal_l005           centre_err median 12.79 mm  mean 13.95 mm  median correction  0.00 mm
+task_risk_cal_l005+selfcal   centre_err median  9.13 mm  mean 11.36 mm  median correction  6.68 mm

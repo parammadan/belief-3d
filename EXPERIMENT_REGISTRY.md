@@ -583,3 +583,31 @@ centre is then corrected by the estimated mean bias over the target's views.
   --treat task_risk_cal_l005+selfcal --primary task_risk_cal_l005
   --secondary random+selfcal,random,fixed+selfcal,fixed`
 - **Commitment.** Report as-is.
+
+## EXP-M5-003 RESULT (pre-registered above; 150 paired test episodes; physical scoring)
+
+**Data-integrity note.** The first automatic copy from the cluster failed midway (`scp:
+Connection closed`) and the analysis ran on 645 of 900 rows (65 episodes). That partial output
+(Δ = +0.169) was **discarded unreported**. All 60 tasks were confirmed COMPLETED, all 900 rows
+were re-copied (tar over ssh), and the analysis below uses the full sample.
+
+| Comparison | Success | Δ (bootstrap 95 % CI) | Discordant | McNemar p |
+|---|---|---|---|---|
+| **H7 primary: D2+selfcal vs D2** | **0.767 vs 0.640** | **+0.127 [0.047, 0.207]** | 29 / 10 | **0.0034** |
+| control: fixed+selfcal vs fixed | 0.513 vs 0.513 | 0.000 | — | — |
+| random+selfcal vs random | 0.747 vs 0.627 | +0.120 | — | — |
+| D2+selfcal vs random+selfcal | 0.767 vs 0.747 | +0.020 [−0.060, 0.100] | 21 / 18 | 0.749 |
+| D2+selfcal vs random | 0.767 vs 0.627 | +0.140 [0.047, 0.233] | 37 / 16 | 0.0055 |
+| D2+selfcal vs fixed | 0.767 vs 0.513 | +0.253 [0.160, 0.347] | 48 / 10 | < 0.001 |
+
+- **H7 CONFIRMED.**
+- **Control behaved as predicted:** with a single view there is nothing to estimate, so the
+  correction is 0 mm and the effect is exactly 0.
+- **Centre error** (`reports/m5/exp_m5_003_sc1/centre_error.txt`): D2 12.79 → 9.13 mm median
+  (median correction 6.7 mm); random 14.73 → 9.33 mm (11.6 mm); fixed 17.54 → 17.65 mm.
+- **Reading.** The improvements stack. Calibration-aware view selection (D2) beats a fixed camera
+  (0.513 → 0.640); self-calibration exploits the view diversity D2 provides (0.640 → 0.767).
+  Together that is +0.253 absolute success under ~1° calibration error. Once self-calibrated,
+  D2 ≈ random (n.s.): most of the benefit comes from view *diversity* plus estimating the bias it
+  reveals, not from fine view choice.
+- Simulation only; one regime; one calibration-error model.

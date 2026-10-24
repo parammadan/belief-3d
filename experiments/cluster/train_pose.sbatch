@@ -9,6 +9,7 @@
 #SBATCH --time=01:00:00
 #SBATCH --output=/scratch/madan.pa/belief3d/logs/train_%j.log
 set -euo pipefail
+module load python/3.13.5   # the venv links against this module's libpython
 cd /scratch/madan.pa/belief3d/belief-3d
 export PYTHONPATH=.
 nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader

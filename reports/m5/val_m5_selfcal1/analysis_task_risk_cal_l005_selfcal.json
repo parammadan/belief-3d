@@ -1,0 +1,107 @@
+{
+ "n_paired_episodes": 40,
+ "n_ambiguous_t0": 6,
+ "success": {
+  "fixed": 0.525,
+  "fixed+selfcal": 0.55,
+  "random": 0.7,
+  "random+selfcal": 0.775,
+  "task_risk_cal_l005": 0.675,
+  "task_risk_cal_l005+selfcal": 0.775
+ },
+ "treatment": "task_risk_cal_l005+selfcal",
+ "primary": {
+  "task_risk_cal_l005+selfcal_vs_task_risk_cal_l005": {
+   "n": 40,
+   "rate_task_risk_cal_l005+selfcal": 0.775,
+   "rate_task_risk_cal_l005": 0.675,
+   "diff": 0.1,
+   "ci95": [
+    -0.025,
+    0.225
+   ],
+   "a_only": 6,
+   "base_only": 2,
+   "mcnemar_p": 0.2890625,
+   "p_holm": 0.2890625
+  }
+ },
+ "secondary": {
+  "task_risk_cal_l005+selfcal_vs_random+selfcal": {
+   "n": 40,
+   "rate_task_risk_cal_l005+selfcal": 0.775,
+   "rate_random+selfcal": 0.775,
+   "diff": 0.0,
+   "ci95": [
+    -0.175,
+    0.175
+   ],
+   "a_only": 6,
+   "base_only": 6,
+   "mcnemar_p": 1.0
+  },
+  "task_risk_cal_l005+selfcal_vs_random": {
+   "n": 40,
+   "rate_task_risk_cal_l005+selfcal": 0.775,
+   "rate_random": 0.7,
+   "diff": 0.075,
+   "ci95": [
+    -0.075,
+    0.225
+   ],
+   "a_only": 7,
+   "base_only": 4,
+   "mcnemar_p": 0.548828125
+  },
+  "task_risk_cal_l005+selfcal_vs_fixed+selfcal": {
+   "n": 40,
+   "rate_task_risk_cal_l005+selfcal": 0.775,
+   "rate_fixed+selfcal": 0.55,
+   "diff": 0.225,
+   "ci95": [
+    0.05,
+    0.4
+   ],
+   "a_only": 12,
+   "base_only": 3,
+   "mcnemar_p": 0.03515625
+  },
+  "task_risk_cal_l005+selfcal_vs_fixed": {
+   "n": 40,
+   "rate_task_risk_cal_l005+selfcal": 0.775,
+   "rate_fixed": 0.525,
+   "diff": 0.25,
+   "ci95": [
+    0.1,
+    0.4
+   ],
+   "a_only": 12,
+   "base_only": 2,
+   "mcnemar_p": 0.012939453125
+  }
+ },
+ "success_ambiguous_subset": {
+  "fixed": 0.6666666666666666,
+  "fixed+selfcal": 0.8333333333333334,
+  "random": 0.8333333333333334,
+  "random+selfcal": 0.8333333333333334,
+  "task_risk_cal_l005": 0.6666666666666666,
+  "task_risk_cal_l005+selfcal": 0.8333333333333334
+ },
+ "mean_travel_s": {
+  "fixed": 0.0,
+  "fixed+selfcal": 0.0,
+  "random": 3.62956154103628,
+  "random+selfcal": 3.62956154103628,
+  "task_risk_cal_l005": 3.8199622511413125,
+  "task_risk_cal_l005+selfcal": 3.7981736944831423
+ },
+ "mean_decide_ms": {
+  "fixed": 5.080971316783689,
+  "fixed+selfcal": 5.3271636890713125,
+  "random": 6.622950255405158,
+  "random+selfcal": 6.94313621497713,
+  "task_risk_cal_l005": 170.8044909813907,
+  "task_risk_cal_l005+selfcal": 180.78259762842208
+ }
+}

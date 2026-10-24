@@ -20,8 +20,10 @@ import numpy as np
 
 
 def load(dirpath: Path) -> dict[str, dict[int, dict]]:
+    """Load one run directory, or several joined with '+' (e.g. a run with and without --selfcal)."""
     by: dict[str, dict[int, dict]] = {}
-    for f in sorted(dirpath.glob("shard_*.jsonl")):
+    files = [f for d in str(dirpath).split("+") for f in sorted(Path(d).glob("shard_*.jsonl"))]
+    for f in files:
         for line in f.read_text().splitlines():
             r = json.loads(line)
             if "skipped" in r:
@@ -85,7 +87,7 @@ def main() -> None:
     out = {"n_paired_episodes": len(seeds), "n_ambiguous_t0": len(amb), "success": overall, "treatment": t,
            "primary": prim, "secondary": sec, "success_ambiguous_subset": amb_rates,
            "mean_travel_s": travel, "mean_decide_ms": decide}
-    (d / f"analysis_{t}.json").write_text(json.dumps(out, indent=1))
+    Path(str(d).split("+")[-1], f"analysis_{t.replace('+', '_')}.json").write_text(json.dumps(out, indent=1))
     print(json.dumps(out, indent=1))
 
 

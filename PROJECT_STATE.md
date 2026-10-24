@@ -9,10 +9,23 @@ _Last updated: 2026-10-24_
 detection, symmetry-aware pose and CLEAR-MOT tracking errors on held-out **test** seeds
 (EXP-M2-001). Calibration drift effects are quantified in EXP-M2-002.
 
-**Next: M3, neural pose estimation.** This needs torch on the cluster (A100) and Param's OK
-before any GPU job. In parallel, a CPU-side **M4 prerequisite** carried from M2: add
-calibration uncertainty to the tracker's measurement covariance, developed on val seeds (see
-the EXP-M2-001 negative result).
+**In progress: M4, belief tracking (CPU), started ahead of M3.** M3 (neural pose) is blocked
+on Param's explicit OK for GPU use, so the CPU-only M4 core went first. This is a deliberate,
+recorded deviation from strict milestone order.
+
+Done so far in M4:
+- **Calibration-aware tracker R.** The pre-registered EXP-M4P-002 is *confirmed*: two-camera
+  MOTA under harsh calibration +0.156, 95 % CI [0.079, 0.242], sign test p = 0.00012 (n = 40).
+- **`tracking/belief/particle.py`.** A multimodal SE(3) particle belief with:
+  - two-sided likelihood: surface agreement plus free space, both in pixel units;
+  - progressive correction with MH resample-move;
+  - mode-preserving resampling with a per-mode kernel;
+  - damped (OU) velocity;
+  - symmetry-aware estimate, spread and mode count.
+  Its properties are tested across 5 seeds.
+
+Next in M4: plug PoseBelief into the multi-object tracker (B2), evaluate against B1 on val,
+then run a registered test.
 
 ## Milestones
 

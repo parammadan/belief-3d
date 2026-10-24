@@ -66,7 +66,7 @@ the EXP-M2-001 negative result).
 ## Verified tests (actually run)
 
 `MUJOCO_GL=cgl .venv/bin/python -m pytest -q` → **139 passed** (macOS, 2026-10-24); `ruff check .` clean.
-CI (ubuntu-latest, OSMesa, Panda fetched): **92 passed**, ruff clean — https://github.com/parammadan/belief-3d/actions/runs/40041526869
+CI (ubuntu-latest, OSMesa, Panda fetched): **139 passed**, ruff clean — https://github.com/parammadan/belief-3d/actions/runs/40102852938
 
 ## Environment
 

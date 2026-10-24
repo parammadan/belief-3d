@@ -295,3 +295,34 @@ it is the M3 baseline comparison, run once. Report: `reports/m3/eval_m3_pose_v1.
   element-wise free-space arithmetic on N × M = 256 × 902 arrays.
 - **Measured on the M1 Mac while a concurrent M5 val job was running**; treat the absolute
   numbers as indicative.
+
+## VAL-M5-001 / -002 / probe (val; M5 design, no claims)
+
+- **VAL-M5-001** (occlusion / nominal, overhead + mobile, 8 eps × 5 policies, budget 2):
+  every policy succeeds 8/8. 1/8 episodes was ambiguous at t₀, and its modes were
+  grasp-irrelevant (risk 0). There, task-risk stayed put (0 s travel) while entropy and
+  covariance moved (0.21 s) and random travelled 4.45 s.
+- **VAL-M5-002** (occlusion / nominal, mobile camera only): every policy 10/10. The first
+  attempt skipped every episode because one frame cannot confirm a track (2 hits needed);
+  fixed with a warm-up frame shared by all policies.
+- **Ambiguity probe** (`experiments/analysis/m5_ambiguity_probe.py`, 12 val episodes per regime;
+  target = highest grasp-now risk):
+
+  | Regime | Multi-mode at t₀ | Mean grasp-now risk | Risk > 0.3 |
+  |---|---|---|---|
+  | occlusion / nominal / mobile | 0/12 | 0.000 | 0 |
+  | occlusion / harsh / mobile | 0/12 | 0.000 | 0 |
+  | clutter / nominal / mobile | 3/12 | 0.000 | 0 |
+  | clutter / harsh / mobile | 2/12 | 0.000 | 0 |
+  | clutter / nominal / overhead + mobile | 1/12 | 0.051 | 1 |
+
+- **Finding (negative for the current setup).** With box / cylinder / sphere primitives and
+  good depth, grasp-relevant ambiguity essentially never survives B2 tracking. No viewpoint
+  policy can change grasp outcomes here (ceiling); the only differences are travel cost.
+- **Defect found.** Task-risk evaluates loss over belief particles, which exclude calibration
+  uncertainty. It predicts ~0 risk under harsh calibration, where real errors (~13 mm) exceed
+  the 1 cm grasp tolerance.
+- **Design change (val-motivated; hypothesis unchanged; recorded before any M5 test):**
+  (1) add a mug primitive (cylinder + handle) whose handle can self-occlude, creating
+  grasp-relevant yaw ambiguity — SE(3)-PoseFlow's example case; (2) make task-risk
+  calibration-aware.

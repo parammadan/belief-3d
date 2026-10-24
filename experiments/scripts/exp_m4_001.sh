@@ -6,6 +6,8 @@ PY=${PY:-.venv/bin/python}
 mkdir -p reports/m4
 for cond in "occlusion:nominal:30" "occlusion:harsh:30" "dynamic:nominal:10" "dynamic:harsh:10"; do
   IFS=: read sc nz n <<< "$cond"; name="test_m4_${sc}_${nz}"
+  # resumable: deterministic runs, so a finished condition is skipped
+  if [ -f "reports/m4/${name}_b1.json" ] && [ -f "reports/m4/${name}_b2.json" ]; then echo "skip $name (done)"; continue; fi
   rm -rf "datasets/$name" "preds/$name"
   $PY scripts/generate_dataset.py --out "datasets/$name" --split test --offset 100 --episodes "$n" --frames 15 \
       --noise "$nz" --scenario "$sc" >/dev/null 2>&1

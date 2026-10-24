@@ -6,8 +6,10 @@ observations are bit-identical across policies (paired design):
   t0   capture both cameras -> perceive -> B2 tracker step
   tgt  target = confirmed track with the highest grasp-now risk (belief-only rule, same for all policies)
   k=1..B  policy picks a viewpoint for camera B -> sim moves it -> step physics -> capture -> perceive -> update
-  end  grasp planned from the target belief's MAP mode; the EVALUATOR scores it against the
-       simulator's true pose with the shared geometric failure model (policies/viewpoint.py)
+  end  grasp planned from the target belief's MAP mode. The EVALUATOR scores it (a) with the
+       shared geometric failure model ("proxy_success") and, with --physical, (b) by executing it on
+       the simulated Panda ("success" = target-class object lifted > 8 cm). The proxy's 1 cm centre
+       tolerance floored success under harsh calibration on val, so physics is the primary score.
 
 The policy only receives the PolicyContext (belief, estimated occluders, plane, candidate
 views, travel times). Ground truth is read only in `evaluate_grasp`.
@@ -110,9 +112,22 @@ def evaluate_grasp(ep: Episode, spec, g, gt_frame) -> dict:
             "true_class": best[1].class_name}
 
 
+def physical_grasp(ep: Episode, g: dict, target_color: str) -> dict:
+    """Execute the planned grasp on the simulated Panda; the EVALUATOR checks which object rose."""
+    from manipulation.grasping.executor import execute_grasp
+    from sim.robot.panda import HOME_Q
+    d = ep.scene.data
+    z0 = [float(d.xpos[b][2]) for b in ep.scene.body_ids]
+    res = execute_grasp(ep.scene.robot, lambda: mujoco.mj_step(ep.scene.model, d), g, home_q=HOME_Q)
+    rose = [ep.scene.objects[i].name for i, b in enumerate(ep.scene.body_ids) if d.xpos[b][2] - z0[i] > 0.08]
+    ok = any(SPEC[n].color_class == target_color for n in rose)
+    return {"success": bool(ok), "lifted": rose, "exec_reason": res.reason, "verified": res.verified,
+            "finger_width": res.finger_width}
+
+
 def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: str, rng_seed: int,
                 cameras: tuple[str, ...] = ("overhead", "mobile"), warmup: int = 1,
-                elevations: tuple[float, ...] = (35.0, 60.0)) -> dict:
+                elevations: tuple[float, ...] = (35.0, 60.0), physical: bool = False) -> dict:
     ep = Episode(seed, scenario, noise, cameras, elevations)
     tracker = BeliefTracker(TrackerConfig(calib_rot_sigma=np.radians(1.0), calib_trans_sigma=0.005),
                             BeliefConfig(), seed=seed)
@@ -166,10 +181,15 @@ def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: 
         i = int(np.argmax(modes.weights))
         g = plan_grasp(SPEC[tgt.spec_name], modes.poses[i])
         result = evaluate_grasp(ep, SPEC[tgt.spec_name], g, gt_frame)
+        result["proxy_success"] = result.pop("success")
+        if physical:
+            result |= physical_grasp(ep, g, tgt.color_class)
+        else:
+            result["success"] = result["proxy_success"]
         final_modes, final_risk = len(modes.weights), risk.grasp_now_loss(ctx_for(tgt))
     ep.close()
     return {"seed": seed, "policy": policy_name, "budget": budget, "scenario": scenario, "noise": noise,
-            "cameras": list(cameras), "warmup": warmup, "elevations": list(elevations),
+            "cameras": list(cameras), "warmup": warmup, "elevations": list(elevations), "physical": physical,
             "target_class": target.spec_name, "init_modes": init_modes, "init_risk": init_risk,
             "ambiguous_t0": bool(init_modes >= 2 or init_risk > 0.1), "views": chosen, "travel_s": travel,
             "final_modes": final_modes, "final_risk": final_risk, "decide_ms_mean": 1e3 * float(np.mean(decide_s)) if decide_s else None,
@@ -187,6 +207,7 @@ def main() -> None:
     ap.add_argument("--noise", default="nominal")
     ap.add_argument("--cameras", default="overhead,mobile")
     ap.add_argument("--elevations", default="35,60", help="candidate-view elevations in degrees")
+    ap.add_argument("--physical", action="store_true", help="score the final grasp by executing it in MuJoCo")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     cams = tuple(a.cameras.split(","))
@@ -204,7 +225,7 @@ def main() -> None:
                 if (seed, p) in done:
                     continue
                 r = run_episode(seed, p, a.budget, a.scenario, a.noise, rng_seed=seed + 17, cameras=cams,
-                                elevations=elev)
+                                elevations=elev, physical=a.physical)
                 f.write(json.dumps(r) + "\n")
                 f.flush()
                 print(json.dumps({k: r.get(k) for k in ("seed", "policy", "ambiguous_t0", "views", "success", "wall_s")}))

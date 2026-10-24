@@ -120,3 +120,34 @@ def test_tracker_rejects_time_travel():
     tr.step(1.0, [])
     with pytest.raises(ValueError):
         tr.step(0.5, [])
+
+
+def test_calibration_term_prevents_duplicate_tracks_from_inconsistent_cameras():
+    """Two cameras see one object 2.5 cm apart (independent extrinsic errors), ~0.8 m away."""
+    def frames():
+        for k in range(10):
+            t = 0.1 * k
+            a = det([0.0, 0.0, 0.43], cam="overhead", t=t)
+            b = det([0.025, 0.0, 0.43], cam="mobile", t=t)
+            yield t, [Detection(a.camera, t, "red", "box_red", a.T_WO, 0.001, 100, 1.0, 0.85),
+                      Detection(b.camera, t, "red", "box_red", b.T_WO, 0.001, 100, 1.0, 0.80)]
+
+    plain = MultiObjectTracker()
+    for t, d in frames():
+        plain.step(t, d)
+    assert len(plain.confirmed()) == 2                         # the M2 failure mode, reproduced
+
+    calib = MultiObjectTracker(TrackerConfig(calib_rot_sigma=np.radians(1.0), calib_trans_sigma=0.005))
+    for t, d in frames():
+        calib.step(t, d)
+    assert len(calib.confirmed()) == 1
+    x = calib.confirmed()[0].position[0]
+    assert 0.0 < x < 0.025                                     # fused between the two reports
+
+
+def test_meas_cov_adds_range_scaled_calibration_term():
+    tr = MultiObjectTracker(TrackerConfig(calib_rot_sigma=0.01, calib_trans_sigma=0.002))
+    T = np.eye(4)
+    d = Detection("overhead", 0.0, "red", "box_red", T, 0.001, 100, 1.0, 2.0)
+    R = tr.meas_cov(d)
+    assert np.allclose(R, np.eye(3) * (0.002**2 + (0.01 * 2.0) ** 2 + 0.002**2))

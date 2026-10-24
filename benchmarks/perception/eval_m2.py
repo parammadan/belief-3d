@@ -56,6 +56,7 @@ def evaluate(dataset: Path, preds: Path, match_dist: float = 0.05) -> dict:
     ious, cls_ok, pose_rows = [], [], []
     ep_mota, mot = [], defaultdict(float)
     recov = {"events": 0, "recovered_same_id": 0, "latency_frames": []}
+    trk_rows = []        # per matched (frame, gt object, track): pose errors + NEES
     for ep in manifest["episodes"]:
         eid = ep["episode_id"]
         P = json.loads((preds / f"{eid}.json").read_text())
@@ -104,6 +105,16 @@ def evaluate(dataset: Path, preds: Path, match_dist: float = 0.05) -> dict:
             D = np.linalg.norm(G[:, None] - T[None], axis=2) if len(T) else np.zeros((len(G), 0))
             r, cidx = linear_sum_assignment(np.where(D <= match_dist, D, 1e6)) if D.size else ([], [])
             pairs = {ref[i]["instance_id"]: tracks[j]["track_id"] for i, j in zip(r, cidx) if D[i, j] <= match_dist}
+            for i, j in zip(r, cidx):
+                if D[i, j] > match_dist:
+                    continue
+                o, trk = ref[i], tracks[j]
+                spec = SPEC[o["class_name"]]
+                e = pose_errors(spec, np.array(trk["T_WO"]), np.array(o["T_WO"]))
+                err = np.array(trk["T_WO"])[:3, 3] - np.array(o["T_WO"])[:3, 3]
+                cov = np.array(trk["pos_cov"]) + np.eye(3) * 1e-12
+                e |= {"shape": spec.shape, "vis": vis[o["instance_id"]], "nees": float(err @ np.linalg.solve(cov, err))}
+                trk_rows.append(e)
             dist_sum += sum(D[i, j] for i, j in zip(r, cidx) if D[i, j] <= match_dist)
             n_match += len(pairs)
             g_tot += len(ref)
@@ -145,6 +156,18 @@ def evaluate(dataset: Path, preds: Path, match_dist: float = 0.05) -> dict:
         return {"n": len(v), "mean": float(np.mean(v)), "median": float(np.median(v)),
                 "p90": float(np.percentile(v, 90)), "ci95_mean": [x for x in _bootstrap_ci(v)]}
 
+    def track_pose(rows):
+        if not rows:
+            return None
+        succ = [r["t_err"] < 0.01 and not (r["r_err_deg"] > 5) for r in rows]
+        nees = np.array([r["nees"] for r in rows])
+        return {"n": len(rows),
+                "t_err_mm": stats("t_err", rows, 1e3), "r_err_deg": stats("r_err_deg", rows),
+                "add_s_mm": stats("add_s", rows, 1e3), "success_1cm_5deg": float(np.mean(succ)),
+                # chi2(3) quantiles: 50 % 2.366, 80 % 4.642, 95 % 7.815
+                "coverage": {"50": float(np.mean(nees <= 2.366)), "80": float(np.mean(nees <= 4.642)),
+                             "95": float(np.mean(nees <= 7.815))}}
+
     tp, fpd, fnd = det_counts["tp"], det_counts["fp"], det_counts["fn"]
     report = {
         "dataset": manifest["name"], "episodes": len(manifest["episodes"]), "dataset_commit": manifest["git_commit"],
@@ -166,6 +189,9 @@ def evaluate(dataset: Path, preds: Path, match_dist: float = 0.05) -> dict:
                      "MOTA_per_episode": ep_mota,
                      "MOTP_mm": 1e3 * mot["dist_sum"] / max(mot["n_match"], 1),
                      "match_dist_m": match_dist},
+        "track_pose": {"all": track_pose(trk_rows),
+                       "partial_visibility": track_pose([r for r in trk_rows if r["vis"] < 0.5]),
+                       "full_visibility": track_pose([r for r in trk_rows if r["vis"] >= 0.5])},
         "occlusion_recovery": {"events": recov["events"], "recovered_same_id": recov["recovered_same_id"],
                                "recovered_rate": recov["recovered_same_id"] / recov["events"] if recov["events"] else None,
                                "latency_frames_median": float(np.median(recov["latency_frames"]))

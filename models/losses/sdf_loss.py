@@ -19,7 +19,7 @@ import torch
 from data.schemas.objects import CATALOG
 from perception.pose.completeness import surface_grid
 
-SHAPE_ID = {"box": 0, "cylinder": 1, "sphere": 2}
+SHAPE_ID = {"box": 0, "cylinder": 1, "sphere": 2, "mug": 1}   # mug ≈ its body for the (untrained-on-mug) proposer
 
 
 class SurfaceBank:
@@ -35,7 +35,7 @@ class SurfaceBank:
             mask[i, : len(g)] = True
         self.points, self.mask = pts.to(device), mask.to(device)
         self.shape = torch.tensor([SHAPE_ID[o.shape] for o in CATALOG], device=device)
-        sizes = torch.zeros(len(CATALOG), 3)
+        sizes = torch.zeros(len(CATALOG), 5)
         for i, o in enumerate(CATALOG):
             sizes[i, : len(o.size)] = torch.as_tensor(o.size)
         self.size = sizes.to(device)
@@ -44,7 +44,7 @@ class SurfaceBank:
 def sdf_torch(shape: torch.Tensor, size: torch.Tensor, P: torch.Tensor) -> torch.Tensor:
     """shape (B,), size (B,3), P (B, ..., 3) object-frame points -> (B, ...) signed distance."""
     view = (-1,) + (1,) * (P.dim() - 2)
-    s = size.view(*view, 3)
+    s = size[:, :3].reshape(*view, 3)
     q = P.abs() - s
     box = q.clamp(min=0).norm(dim=-1) + q.max(dim=-1).values.clamp(max=0)
     rxy = P[..., :2].norm(dim=-1)

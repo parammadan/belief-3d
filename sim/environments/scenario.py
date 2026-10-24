@@ -33,6 +33,9 @@ class ScenarioConfig:
     kick_prob: float = 0.0
     kick_speed: tuple[float, float] = (0.2, 0.5)  # m/s
     min_sep: float = 0.11                      # m between spawned centres; < ~0.09 creates contact clutter
+    # Mugs were added to the catalog after EXP-M2/M3/M4. They are excluded from the sampling
+    # pool unless asked for, so every earlier experiment's scenes replay bit-identically.
+    n_mugs: int = 0
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -43,6 +46,8 @@ PRESET_SCENARIOS: dict[str, ScenarioConfig] = {
     "varied": ScenarioConfig(n_objects=(3, 6), use_catalog=True, light_jitter=0.25, color_jitter=0.12),
     "occlusion": ScenarioConfig(n_objects=(3, 6), use_catalog=True, light_jitter=0.25, color_jitter=0.12,
                                 occlusion_prob=1.0),
+    "mugs": ScenarioConfig(n_objects=(4, 6), use_catalog=True, light_jitter=0.25, color_jitter=0.12,
+                           min_sep=0.09, n_mugs=1),
     "clutter": ScenarioConfig(n_objects=(5, 7), use_catalog=True, light_jitter=0.25, color_jitter=0.12,
                               min_sep=0.075, force_similar_pair=True),
     "dynamic": ScenarioConfig(n_objects=(3, 6), use_catalog=True, light_jitter=0.25, color_jitter=0.12,
@@ -68,10 +73,10 @@ class Scenario:
         if cfg.use_catalog:
             n = int(rng.integers(cfg.n_objects[0], cfg.n_objects[1] + 1))
             names = [o.name for o in CATALOG]
-            pool = list(range(len(CATALOG)))
-            chosen: list[int] = []
+            pool = [i for i, o in enumerate(CATALOG) if o.shape != "mug"]
+            chosen: list[int] = [i for i, o in enumerate(CATALOG) if o.shape == "mug"][: cfg.n_mugs]
             if cfg.force_similar_pair:
-                chosen = [names.index("box_red"), names.index("box_red_b")]
+                chosen += [names.index("box_red"), names.index("box_red_b")]
                 pool = [i for i in pool if i not in chosen]
             chosen += list(rng.choice(pool, size=max(0, n - len(chosen)), replace=False))
             objects = tuple(CATALOG[i] for i in sorted(chosen))

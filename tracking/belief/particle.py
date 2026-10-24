@@ -105,7 +105,7 @@ def lowest_point_heights(spec: ObjectSpec, R: np.ndarray, x: np.ndarray, n: np.n
         return centre - spec.size[0]
     if spec.shape == "box":
         return centre - np.abs(a) @ np.asarray(spec.size)
-    r, hh = spec.size
+    r, hh = spec.size[:2]                        # cylinder; mug body
     return centre - (r * np.sqrt(np.clip(1.0 - a[:, 2] ** 2, 0.0, None)) + hh * np.abs(a[:, 2]))
 
 
@@ -115,6 +115,9 @@ def surface_area(spec: ObjectSpec) -> float:
     if spec.shape == "box":
         a, b, c = (2 * x for x in spec.size)
         return 2 * (a * b + b * c + a * c)
+    if spec.shape == "mug":
+        r, hh, hl, hw, hz = spec.size
+        return 2 * np.pi * r * (2 * hh) + 2 * np.pi * r * r + 2 * (hl * 2 * hw + hl * 2 * hz) + 2 * (2 * hw) * (2 * hz)
     r, hh = spec.size
     return 2 * np.pi * r * (2 * hh) + 2 * np.pi * r * r
 

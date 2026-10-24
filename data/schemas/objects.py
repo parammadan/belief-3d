@@ -12,8 +12,10 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class ObjectSpec:
     name: str
-    shape: str               # "box" | "cylinder" | "sphere"
-    size: tuple[float, ...]  # MuJoCo geom size (half-extents / radius, half-height)
+    shape: str               # "box" | "cylinder" | "sphere" | "mug"
+    # MuJoCo geom size (half-extents / radius, half-height). Mug: (r, hh, handle_len, handle_hw, handle_hh):
+    # cylinder body (r, hh) plus a handle box along local +x spanning [r, r + handle_len].
+    size: tuple[float, ...]
     rgba: tuple[float, float, float, float]
     symmetry: str
     color_class: str        # nominal hue class used by the classical detector
@@ -33,4 +35,7 @@ CATALOG: tuple[ObjectSpec, ...] = DEFAULT_OBJECTS + (
     ObjectSpec("box_red_b", "box", (0.030, 0.020, 0.025), (0.85, 0.15, 0.15, 1), "box", "red"),
     ObjectSpec("cyl_green_b", "cylinder", (0.025, 0.035), (0.15, 0.75, 0.25, 1), "cylindrical_z", "green"),
     ObjectSpec("cyl_orange", "cylinder", (0.020, 0.045), (0.95, 0.50, 0.10, 1), "cylindrical_z", "orange"),
+    # Mug: the handle makes yaw fully observable *only when the handle is visible*, and it decides
+    # the safe grasp (fingers must close perpendicular to it): grasp-relevant ambiguity (M5).
+    ObjectSpec("mug_cyan", "mug", (0.030, 0.040, 0.030, 0.006, 0.022), (0.10, 0.75, 0.80, 1), "none", "cyan"),
 )

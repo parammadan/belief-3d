@@ -45,6 +45,13 @@ def sdf(spec: ObjectSpec, P: np.ndarray) -> np.ndarray:
         r, hh = spec.size
         d = np.column_stack([np.linalg.norm(P[:, :2], axis=1) - r, np.abs(P[:, 2]) - hh])
         return np.minimum(d.max(axis=1), 0.0) + np.linalg.norm(np.maximum(d, 0.0), axis=1)
+    if spec.shape == "mug":
+        r, hh, hl, hw, hz = spec.size
+        d = np.column_stack([np.linalg.norm(P[:, :2], axis=1) - r, np.abs(P[:, 2]) - hh])
+        body = np.minimum(d.max(axis=1), 0.0) + np.linalg.norm(np.maximum(d, 0.0), axis=1)
+        q = np.abs(P - np.array([r + hl / 2, 0.0, 0.0])) - np.array([hl / 2, hw, hz])
+        handle = np.linalg.norm(np.maximum(q, 0.0), axis=1) + np.minimum(q.max(axis=1), 0.0)
+        return np.minimum(body, handle)
     raise ValueError(spec.shape)
 
 
@@ -56,7 +63,7 @@ def lowest_point_height(spec: ObjectSpec, R: np.ndarray, t: np.ndarray, n: np.nd
         return centre - spec.size[0]
     if spec.shape == "box":
         return centre - float(np.abs(a) @ np.asarray(spec.size))
-    r, hh = spec.size
+    r, hh = spec.size[:2]                        # mug: the body bounds the lowest point when upright
     return centre - (r * float(np.sqrt(max(0.0, 1.0 - a[2] ** 2))) + hh * abs(float(a[2])))
 
 
@@ -65,7 +72,7 @@ def half_extents(spec: ObjectSpec) -> np.ndarray:
         return np.full(3, spec.size[0])
     if spec.shape == "box":
         return np.asarray(spec.size, float)
-    return np.array([spec.size[0], spec.size[0], spec.size[1]])
+    return np.array([spec.size[0], spec.size[0], spec.size[1]])     # cylinder; mug body
 
 
 @dataclass(frozen=True)
@@ -100,6 +107,14 @@ def initialisations(spec: ObjectSpec, P: np.ndarray, plane_n: np.ndarray, plane_
         e1 = np.array([1.0, 0.0, 0.0])
     c_on_plane = c - plane_n * (plane_n @ c + plane_d)
     he = half_extents(spec)
+    if spec.shape == "mug":
+        # Upright; the handle direction is unknown, so 8 yaw hypotheses about the up axis.
+        inits = []
+        for k in range(8):
+            yaw = 2 * np.pi * k / 8
+            e = np.cos(yaw) * e1 + np.sin(yaw) * np.cross(plane_n, e1)
+            inits.append(se3.make_T(_frame_with_up(2, plane_n, e, False), c_on_plane + plane_n * he[2]))
+        return inits
     ups = {"sphere": [2], "cylinder": [2, 0], "box": [0, 1, 2]}[spec.shape]
     inits = []
     for up in ups:

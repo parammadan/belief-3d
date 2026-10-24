@@ -46,6 +46,8 @@ def box_symmetry_group(extents, tol: float = 1e-6) -> list[np.ndarray]:
 def rotation_error(spec: ObjectSpec, R_est: np.ndarray, R_gt: np.ndarray) -> float:
     if spec.shape == "sphere":
         return float("nan")
+    if spec.shape == "mug":                       # the handle breaks every symmetry
+        return se3.geodesic_distance(R_est, R_gt)
     if spec.shape == "cylinder":
         c = abs(float(R_est[:, 2] @ R_gt[:, 2]))
         return float(np.arccos(np.clip(c, -1.0, 1.0)))
@@ -55,6 +57,13 @@ def rotation_error(spec: ObjectSpec, R_est: np.ndarray, R_gt: np.ndarray) -> flo
 def sample_surface(spec: ObjectSpec, n: int = 500, seed: int = 0) -> np.ndarray:
     """Roughly uniform points on the primitive surface (object frame)."""
     rng = np.random.default_rng(seed)
+    if spec.shape == "mug":
+        r, hh, hl, hw, hz = spec.size
+        body = ObjectSpec("_b", "cylinder", (r, hh), spec.rgba, "cylindrical_z", spec.color_class)
+        handle = ObjectSpec("_h", "box", (hl / 2, hw, hz), spec.rgba, "box", spec.color_class)
+        P = np.vstack([sample_surface(body, 3 * n, seed), sample_surface(handle, n, seed + 1) + [r + hl / 2, 0, 0]])
+        P = P[np.abs(sdf(spec, P)) < 1e-7]
+        return P[rng.choice(len(P), min(n, len(P)), replace=False)]
     if spec.shape == "sphere":
         v = rng.normal(size=(n, 3))
         return spec.size[0] * v / np.linalg.norm(v, axis=1, keepdims=True)

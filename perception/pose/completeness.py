@@ -20,7 +20,24 @@ from perception.geometry.camera import PinholeIntrinsics
 from perception.pose.primitive_fit import sdf
 
 
+def _mug_parts(spec: ObjectSpec):
+    from data.schemas.objects import ObjectSpec as _OS
+    r, hh, hl, hw, hz = spec.size
+    body = _OS("_b", "cylinder", (r, hh), spec.rgba, "cylindrical_z", spec.color_class)
+    handle = _OS("_h", "box", (hl / 2, hw, hz), spec.rgba, "box", spec.color_class)
+    return body, handle, np.array([r + hl / 2, 0.0, 0.0])
+
+
+def _on_union_surface(spec: ObjectSpec, P: np.ndarray) -> np.ndarray:
+    return P[np.abs(sdf(spec, P)) < 1e-7]
+
+
 def _sample_surface(spec: ObjectSpec, n: int, rng: np.random.Generator) -> np.ndarray:
+    if spec.shape == "mug":
+        body, handle, off = _mug_parts(spec)
+        P = np.vstack([_sample_surface(body, 2 * n, rng), _sample_surface(handle, n, rng) + off])
+        P = _on_union_surface(spec, P)
+        return P[rng.choice(len(P), min(n, len(P)), replace=False)]
     # Area-weighted sampling, same scheme as the evaluator's (kept separate so
     # inference never imports benchmarks).
     if spec.shape == "sphere":
@@ -47,6 +64,9 @@ def surface_grid(spec: ObjectSpec, spacing: float) -> np.ndarray:
 
     Random samples leave thin regions unsampled by chance: 96 random points put 0-2
     samples on a 10 x 60 mm strip, depending on the seed (measured)."""
+    if spec.shape == "mug":
+        body, handle, off = _mug_parts(spec)
+        return _on_union_surface(spec, np.vstack([surface_grid(body, spacing), surface_grid(handle, spacing) + off]))
     if spec.shape == "sphere":
         r = spec.size[0]
         n = max(20, int(4 * np.pi * r * r / spacing**2))

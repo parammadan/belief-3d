@@ -37,6 +37,7 @@ class GraspModel:
     tol_z: float = 0.020
     tol_yaw: float = np.radians(15.0)
     max_opening: float = 0.08
+    mug_clear_deg: float = 60.0      # closing axis within this angle of the handle => finger hits handle
 
 
 def horizontal_extents(spec: ObjectSpec, T_WO: np.ndarray) -> tuple[np.ndarray, float, float]:
@@ -44,6 +45,11 @@ def horizontal_extents(spec: ObjectSpec, T_WO: np.ndarray) -> tuple[np.ndarray, 
     R = T_WO[:3, :3]
     if spec.shape == "sphere":
         return np.array([1.0, 0.0, 0.0]), 2 * spec.size[0], 2 * spec.size[0]
+    if spec.shape == "mug":
+        # Close across the body, perpendicular to the handle (local +x).
+        h = np.array([R[0, 0], R[1, 0], 0.0])
+        h /= max(np.linalg.norm(h), 1e-9)
+        return np.array([-h[1], h[0], 0.0]), 2 * spec.size[0], 2 * spec.size[0] + spec.size[2]
     if spec.shape == "cylinder":
         r, hh = spec.size
         axis = R[:, 2]
@@ -74,6 +80,13 @@ def grasp_fails(spec: ObjectSpec, g: dict, T_true: np.ndarray, m: GraspModel = G
     d = g["p"] - T_true[:3, 3]
     if np.hypot(d[0], d[1]) > m.tol_xy or abs(d[2]) > m.tol_z:
         return True
+    if spec.shape == "mug":
+        # The fingers sweep into the handle unless the closing axis is near-perpendicular to it.
+        h = T_true[:3, 0].copy()
+        h[2] = 0.0
+        h /= max(np.linalg.norm(h), 1e-9)
+        ang = np.degrees(np.arccos(np.clip(abs(float(g["axis"] @ h)), 0.0, 1.0)))
+        return ang < m.mug_clear_deg
     axis_t, w_t, _ = horizontal_extents(spec, T_true)
     upright_round = spec.shape == "sphere" or (spec.shape == "cylinder" and abs(T_true[2, 2]) > 0.7)
     if not upright_round:

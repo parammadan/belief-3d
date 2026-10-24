@@ -34,8 +34,18 @@ OBJECT_GROUP, ISOLATE_GROUP = 4, 5
 
 
 def _object_xml(o: ObjectSpec) -> str:
-    size = " ".join(f"{s:.4f}" for s in o.size)
     rgba = " ".join(f"{c:.3f}" for c in o.rgba)
+    if o.shape == "mug":
+        r, hh, hl, hw, hz = o.size
+        return (
+            f'<body name="{o.name}" pos="0 0 1">'
+            f'<freejoint name="{o.name}_joint"/>'
+            f'<geom name="{o.name}_geom" type="cylinder" size="{r:.4f} {hh:.4f}" rgba="{rgba}" group="{OBJECT_GROUP}" '
+            f'mass="0.08" friction="1 0.005 0.0001"/>'
+            f'<geom name="{o.name}_handle" type="box" pos="{r + hl / 2:.4f} 0 0" size="{hl / 2:.4f} {hw:.4f} {hz:.4f}" '
+            f'rgba="{rgba}" group="{OBJECT_GROUP}" mass="0.02" friction="1 0.005 0.0001"/></body>'
+        )
+    size = " ".join(f"{s:.4f}" for s in o.size)
     return (
         f'<body name="{o.name}" pos="0 0 1">'
         f'<freejoint name="{o.name}_joint"/>'

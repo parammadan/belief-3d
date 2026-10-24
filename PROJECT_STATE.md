@@ -14,9 +14,13 @@ EXP-M4-001 confirmed both hypotheses:
 B2 is not uniformly better: about 0.4 mm worse translation under nominal noise, and about
 5,000× slower.
 
-**M3 (neural pose), in progress on the cluster.** Data is done (175,599 / 17,599 / 17,789
-samples). pose_v1 is trained: val top-1 mean 4.78 mm, best-of-K 2.64 mm, 6 min 41 s on an A100.
-The test comparison (eval_m3) is running.
+**M3: Neural pose estimation. Exit criteria met.** Reproducible outputs, checkpoint (on the
+cluster, sha256-recorded) and baseline comparison tables exist.
+- **EXP-M3-001:** neural proposals + SDF refinement score 0.985 [0.956, 1.0] success on
+  < 50 %-visible test samples, vs 0.853 for the classical fit, at half its time. The network
+  alone is worse (0.735).
+- **Not run:** FoundationPose (level 3, optional).
+- **Checkpoint:** not yet published publicly (needs Param's OK for a GitHub release).
 
 **M5 (active perception), started.** Policies A/B/C1/C2/D and the predictor are built and
 unit-tested; the closed-loop harness `scripts/run_m5.py` has been smoke-tested.
@@ -28,7 +32,7 @@ claim stands (see literature_review).
 - [x] **M0**: environment audit, geometry core, minimal scene, validated camera geometry
 - [x] **M1**: robot, viewpoints, noise, scenarios, dataset writer/validator
 - [x] **M2**: classical segmentation, SDF pose fit, completeness, CV-KF + Hungarian tracking, calibration checks, independent evaluator
-- [~] M3 neural pose (trained; test eval running) · [x] **M4** belief tracking · [~] M5 active perception (built, not evaluated)
+- [x] **M3** neural pose · [x] **M4** belief tracking · [~] M5 active perception (built, not evaluated)
 - [ ] M6 closed-loop manipulation · [ ] M7 systems optimisation · [ ] M8 final study
 
 ## M2 checklist

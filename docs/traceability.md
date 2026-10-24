@@ -23,9 +23,12 @@
 | §9 depth: back-projection, plane estimation, outliers, depth-noise handling | `classical.py` (RANSAC + MAD), `primitive_fit.py` (soft-L1) | `test_plane_fit_and_noise_estimate_on_synthetic_points` | done |
 | §9 calibration as a subsystem (targets, perturbations, reprojection/triangulation/3D error) | `perception/calibration/fiducial.py`, `benchmarks/calibration/calib_sweep.py` | `test_calibration.py`, EXP-M2-002 | done |
 | §10 level-1 geometric pose | `perception/pose/primitive_fit.py` | `test_zero_noise_recovery_*`, `test_support_prior_*`, EXP-M2-001 | done |
-| §10 level-2/3 neural / published pose | — | — | M3 |
+| §10 level-2 neural pose proposals (PyTorch, multi-hypothesis, symmetry-invariant SDF loss) | `models/`, `data/generators/pointcloud_samples.py` | `test_neural_pose.py` (cluster), EXP-M3-001 | done |
+| §10 level-3 published baseline (FoundationPose) | — | licence checked (NVIDIA research-only) | deferred (optional) |
+| §20 GPU training: AMP, checkpointing, seeding, metadata, VRAM / throughput logging | `models/training/train_pose.py` | RUN-M3-* | done |
 | §11 tracking: IDs, history, motion, misses, occlusion state, recovery | `tracking/tracker.py`, `filters/kalman.py`, `association/hungarian.py` | `test_tracking.py`, EXP-M2-001 | done (CLEAR-MOT; HOTA not yet) |
 | §11 metrics from predicted tracks, not oracle IDs | `benchmarks/perception/eval_m2.py` | reads only preds + gt files | done |
-| §12 belief tracking | `tracking/belief` | — | M4 |
-| §14 policies | `policies/` | — | M5 |
+| §12 belief tracking (multimodal, symmetry-aware, causal) | `tracking/belief/particle.py`, `tracking/belief_tracker.py` | `test_belief.py` (24 seed-parametrised), EXP-M4-001 | done |
+| §13 uncertainty calibration (coverage) | `benchmarks/perception/eval_m2.py` (NEES coverage) | EXP-M4-001 | partial (coverage reported; calibration curves / risk-coverage in M5/M8) |
+| §14 policies A/B/C1/C2/D | `policies/viewpoint.py`, `policies/predict.py` | `test_policies.py` | built; evaluation pending (M5) |
 | §19 C++ components | `cpp/` | — | M7 (cmake not installed) |

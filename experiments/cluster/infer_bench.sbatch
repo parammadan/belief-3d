@@ -12,7 +12,10 @@ module load python/3.13.5
 cd /scratch/madan.pa/belief3d/belief-3d
 export PYTHONPATH=.
 TRT_LIBS=$(../env/bin/python -c "import tensorrt_libs, os; print(os.path.dirname(tensorrt_libs.__file__))" 2>/dev/null || true)
-export LD_LIBRARY_PATH=${TRT_LIBS}:${LD_LIBRARY_PATH:-}
+# onnxruntime-gpu needs CUDA 12 + cuDNN 9 shared libs. They ship inside torch's nvidia/* wheels but
+# are not on the loader path: run 11351691 silently fell back to CPUExecutionProvider without them.
+NV_LIBS=$(ls -d ../env/lib/python3.13/site-packages/nvidia/*/lib 2>/dev/null | tr '\n' ':')
+export LD_LIBRARY_PATH=${TRT_LIBS}:${NV_LIBS}${LD_LIBRARY_PATH:-}
 nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
 mkdir -p ../reports/m7
 ../env/bin/python -m benchmarks.performance.infer_bench --ckpt ../runs/pose_v1/best.pt \

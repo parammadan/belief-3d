@@ -116,8 +116,15 @@ def main() -> None:
                             ("ort_tensorrt_fp16", [("TensorrtExecutionProvider", {"trt_fp16_enable": True}),
                                                    "CUDAExecutionProvider"])):
             try:
-                sess = ort.InferenceSession(str(onnx_path), providers=provs)
+                so = ort.SessionOptions()
+                so.intra_op_num_threads = 4          # explicit: avoids affinity errors on shared nodes
+                sess = ort.InferenceSession(str(onnx_path), sess_options=so, providers=provs)
                 used = sess.get_providers()
+                wanted = provs[0] if isinstance(provs[0], str) else provs[0][0]
+                if wanted not in used:
+                    # Never report a CPU fallback under a GPU label.
+                    report["backends"][name] = {"unavailable": f"requested {wanted}, got {used} (fallback)"}
+                    continue
                 row = {"providers_used": used}
                 full = {"points": pts, "cls": cls}
                 row["accuracy"] = accuracy(sess.run(None, full))

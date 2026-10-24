@@ -13,6 +13,15 @@ The lowest robust cost wins.
 Only visible surface points enter the cost. A partial view leaves some
 directions weakly constrained, and that shows up in `rms` and `n_points`,
 which the tracker uses for measurement noise.
+
+Support prior (optional, on by default): objects at rest touch the support
+plane, so one extra residual sqrt(N) * (f_scale / support_sigma) * gap
+penalises the gap between the model's lowest point and the plane. Without
+it, box_red (half-extents 30/20/25 mm) is ambiguous between "z up" and "y up"
+under ~2 mm depth noise: both fit the visible points with RMS ~1.6 mm, and the
+wrong one floats ~1 cm. This was measured on val seeds (8 of 381 detections).
+**Assumption:** this is wrong for stacked, lifted or tipped-on-edge objects.
+Disable it with support_sigma=None.
 """
 from __future__ import annotations
 
@@ -37,6 +46,18 @@ def sdf(spec: ObjectSpec, P: np.ndarray) -> np.ndarray:
         d = np.column_stack([np.linalg.norm(P[:, :2], axis=1) - r, np.abs(P[:, 2]) - hh])
         return np.minimum(d.max(axis=1), 0.0) + np.linalg.norm(np.maximum(d, 0.0), axis=1)
     raise ValueError(spec.shape)
+
+
+def lowest_point_height(spec: ObjectSpec, R: np.ndarray, t: np.ndarray, n: np.ndarray, d: float) -> float:
+    """Height above plane (n.p + d = 0) of the primitive's lowest point."""
+    centre = float(n @ t + d)
+    a = R.T @ n                                  # plane normal in object frame
+    if spec.shape == "sphere":
+        return centre - spec.size[0]
+    if spec.shape == "box":
+        return centre - float(np.abs(a) @ np.asarray(spec.size))
+    r, hh = spec.size
+    return centre - (r * float(np.sqrt(max(0.0, 1.0 - a[2] ** 2))) + hh * abs(float(a[2])))
 
 
 def half_extents(spec: ObjectSpec) -> np.ndarray:
@@ -96,6 +117,7 @@ def fit_primitive(
     noise_sigma: float = 0.0,
     max_points: int = 400,
     seed: int = 0,
+    support_sigma: float | None = 0.005,
 ) -> PoseEstimate:
     if len(P_W) < 10:
         raise ValueError("too few points to fit")
@@ -106,14 +128,19 @@ def fit_primitive(
     for T0 in initialisations(spec, P, plane_n, plane_d):
         R0, t0 = T0[:3, :3], T0[:3, 3]
 
-        def resid(x, R0=R0, t0=t0):
+        w_sup = np.sqrt(len(P)) * f_scale / support_sigma if support_sigma else 0.0
+
+        def resid(x, R0=R0, t0=t0, w_sup=w_sup):
             R = R0 @ se3.so3_exp(x[:3])
-            return sdf(spec, (P - (t0 + x[3:])) @ R)          # rows: R^T (p - t)
+            r = sdf(spec, (P - (t0 + x[3:])) @ R)             # rows: R^T (p - t)
+            if not w_sup:
+                return r
+            return np.append(r, w_sup * lowest_point_height(spec, R, t0 + x[3:], plane_n, plane_d))
 
         sol = least_squares(resid, np.zeros(6), loss="soft_l1", f_scale=f_scale, x_scale=[0.1] * 3 + [0.01] * 3,
                             max_nfev=200)
         T = se3.make_T(R0 @ se3.so3_exp(sol.x[:3]), t0 + sol.x[3:])
-        r = resid(sol.x)
+        r = resid(sol.x)[: len(P)]
         est = PoseEstimate(spec.name, T, float(np.sqrt(np.mean(r**2))), len(P_W), float(sol.cost))
         if best is None or est.cost < best.cost:
             best = est

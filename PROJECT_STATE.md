@@ -32,9 +32,14 @@ leakage; two registered studies).
 - **Mechanism:** D2 picks views whose calibration biases cancel, giving the lowest centre
   error (median 12.7 mm).
 
-**M6: Closed-loop manipulation, started.** Grasp executor done (physics-tested, with
-proprioceptive verification); `scripts/run_m6.py` (recovery + place) is written but not yet
-evaluated.
+**M6: Closed-loop manipulation. Exit criteria met.** Randomised pick-and-place from
+perception-derived targets: physics-executed grasp, proprioceptive verification, recovery,
+tray placement.
+- **EXP-M6-002 (100 paired test episodes):** success 0.50 (fixed) / 0.64 (D2) with recovery.
+- **H6 (recovery helps) not supported:** +0.03 / +0.05, Holm p = 0.45; retry success ~14 %.
+- **EXP-M6-001** was compromised by two harness bugs (both fixed and recorded).
+- **Main remaining error:** calibration bias. Proposed next step: online self-calibration from
+  known-shape objects (awaiting Param's go-ahead).
 Literature check done: SE(3)-PoseFlow, ActivePose and POTAMP were read in full and the narrow
 claim stands (see literature_review).
 
@@ -44,7 +49,7 @@ claim stands (see literature_review).
 - [x] **M1**: robot, viewpoints, noise, scenarios, dataset writer/validator
 - [x] **M2**: classical segmentation, SDF pose fit, completeness, CV-KF + Hungarian tracking, calibration checks, independent evaluator
 - [x] **M3** neural pose · [x] **M4** belief tracking · [x] **M5** active perception (EXP-M5-001 null; EXP-M5-002 confirmed)
-- [ ] M6 closed-loop manipulation · [ ] M7 systems optimisation · [ ] M8 final study
+- [x] **M6** closed-loop manipulation · [ ] M7 systems optimisation · [ ] M8 final study
 
 ## M2 checklist
 

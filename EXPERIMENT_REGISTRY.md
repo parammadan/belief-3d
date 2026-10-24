@@ -531,3 +531,21 @@ Same task, regime, arms, policies, analysis and commitment as EXP-M6-001. New,
 never-evaluated test seeds, offset 1500–1599. H6: per policy, success with 2 attempts > with 1
 (exact McNemar, Holm across fixed and D2). Descriptive: D2 vs fixed at each attempt budget
 (no correction claimed).
+
+## EXP-M6-002 RESULT (pre-registered above; 100 paired test episodes per arm, all complete)
+
+| Policy | Success, 1 attempt | Success, 2 attempts | Gain (recovered / lost) | McNemar p | Holm p | Retry success | Mean attempts |
+|---|---|---|---|---|---|---|---|
+| fixed | 0.47 | 0.50 | +0.03 (5 / 2) | 0.453 | 0.453 | 14.0 % (7/50) | 1.50 |
+| D2 (task_risk_cal_l005) | 0.59 | 0.64 | +0.05 (8 / 3) | 0.227 | 0.453 | 13.9 % (5/36) | 1.36 |
+
+- **H6 (recovery raises success): NOT SUPPORTED** for either policy.
+- **Why retries rarely help.** Retrying re-plans from essentially the same belief, and under
+  `harsh` noise failures are dominated by calibration bias, which a re-plan does not remove.
+- **Descriptive, uncorrected.** D2 beats fixed by +0.12 at 1 attempt and +0.14 at 2,
+  consistent with EXP-M5-002, now on the full pick-and-place task.
+- **Proprioceptive verification errors.** "Held" but not placed in 5–7 % of episodes;
+  "not held" but actually placed in 3–4 %.
+- **M6 exit criterion met.** The robot completes randomised pick-and-place episodes from
+  perception-derived targets, with success 0.50 (fixed) / 0.64 (D2) under `harsh` calibration
+  error. The limiting error is calibration, which is the motivation for online self-calibration.

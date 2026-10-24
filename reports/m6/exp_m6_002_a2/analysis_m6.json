@@ -1,0 +1,34 @@
+{
+ "policies": {
+  "fixed": {
+   "n": 100,
+   "success_1_attempt": 0.47,
+   "success_2_attempts": 0.5,
+   "gain": 0.03,
+   "recovered_only_with_retry": 5,
+   "lost_with_retry": 2,
+   "mcnemar_p": 0.453125,
+   "episodes_needing_retry": 50,
+   "retry_success_rate": 0.14,
+   "mean_attempts": 1.5,
+   "verified_held_but_not_placed": 0.07,
+   "not_verified_but_placed": 0.03,
+   "p_holm": 0.453125
+  },
+  "task_risk_cal_l005": {
+   "n": 100,
+   "success_1_attempt": 0.59,
+   "success_2_attempts": 0.64,
+   "gain": 0.05,
+   "recovered_only_with_retry": 8,
+   "lost_with_retry": 3,
+   "mcnemar_p": 0.2265625,
+   "episodes_needing_retry": 36,
+   "retry_success_rate": 0.1388888888888889,
+   "mean_attempts": 1.36,
+   "verified_held_but_not_placed": 0.05,
+   "not_verified_but_placed": 0.04,
+   "p_holm": 0.453125
+  }
+ }
+}

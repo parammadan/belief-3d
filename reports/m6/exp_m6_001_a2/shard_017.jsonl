@@ -1,0 +1,2 @@
+{"seed": 2001485, "policy": "fixed", "cameras": ["mobile"], "budget": 2, "target": "mug_cyan", "attempts": 1, "log": ["held"], "travel_s": 0.0, "held": true, "wall_s": 15.039039564318955, "placed": ["mug_cyan"], "success": true}
+{"seed": 2001485, "policy": "task_risk_cal_l005", "cameras": ["mobile"], "budget": 2, "target": "mug_cyan", "attempts": 1, "log": ["held"], "travel_s": 0.0, "held": true, "wall_s": 13.215300854295492, "placed": ["mug_cyan"], "success": true}

@@ -9,7 +9,7 @@ before they go into the paper.
 
 | Work | What it does | Overlap with RCABT |
 |---|---|---|
-| **SE(3)-PoseFlow**: Jin, Funk, Prasad, Li, Franzius, Peters, Chalvatzaki. arXiv:2511.01501 (Nov 2025). *abstract-level* | Flow matching on SE(3) to output pose *distributions*; active perception to disambiguate uncertain views; grasp synthesis from pose samples. | **High.** It already combines a multimodal pose distribution, active viewing and uncertainty-aware grasping. We must read the full paper to find out whether its view objective is uncertainty- or task-based. |
+| **SE(3)-PoseFlow**: Jin, Funk, Prasad, Li, Franzius, Peters, Chalvatzaki. arXiv:2511.01501 (Nov 2025). *Full HTML read 2026-10-24.* | Flow matching on SE(3) outputs pose *samples*. NBV (their Eq. 7): v* = argmin_v E[tr(Σ_R \| v)], i.e. **minimise predicted rotational covariance** over viewpoints sampled on a sphere. Grasps marginalise EquiGraspFlow velocity fields over hypotheses. Real Franka: mug grasping 19/20 multi-hypothesis vs 15/20 single. | **Closest work, but its view objective is uncertainty-only and "not linked" to grasp outcomes.** It reports no quantitative active-perception numbers and no Bayesian filtering over time; it lists "how to incorporate Bayesian inference for principled utilization of these samples" as an open question. Its objective becomes our B3 variant ("minimise expected rotational covariance"). |
 | **ActivePose**: Liu et al. arXiv:2509.11364 (Sep 2025, rev. Mar 2026). *abstract-level* | FoundationPose hypothesis entropy + VLM ambiguity score; NBV over rendered candidate views; diffusion-policy camera tracking. | High for "entropy/ambiguity-driven NBV for 6D pose". This is a natural information-gain-style comparator. |
 | **TVVE**: Bai et al. "Learning to See and Act: Task-Aware Virtual View Exploration". arXiv:2508.05186 (CVPR 2026 per arXiv page). *abstract-level* | Learned, task-aware virtual viewpoint selection for VLA manipulation (RLBench). | Medium. It is task-aware but learned end-to-end, with no explicit pose belief stated in the abstract. |
 | **PoseRBPF**: Deng, Mousavian, Xiang, Xia, Bretl, Fox. RSS 2019, arXiv:1905.09304. | Rao-Blackwellized particle filter: rotation as a discretised distribution, translation per particle; handles symmetry and occlusion. | It is the canonical multimodal 6D tracker. Our belief tracker is **not** a contribution over it; it is a baseline to reimplement or compare against. |
@@ -32,14 +32,16 @@ symmetry-aware pose metrics; HOTA (Luiten et al., IJCV 2021) for tracking.
   an explicit grasp / observe / abstain rule. It would also test whether **calibration** of the
   belief is what drives any difference (ablation A2). This is closer to an empirical contribution
   than an algorithmic one.
-- **Main risk:** if SE(3)-PoseFlow's view objective already scores views by downstream grasp
-  quality, even this narrow claim weakens. Reading that paper in full is the first M5-blocking task.
+- **Risk resolved (2026-10-24):** SE(3)-PoseFlow's view objective is rotational-covariance
+  reduction, not grasp quality, and it has no temporal Bayesian belief. The narrow claim stands,
+  provided the remaining checks (ActivePose, arXiv:2403.10454, a value-of-information search)
+  don't overturn it.
 - A negative result ("task-aware ≈ information gain once beliefs are calibrated") is acceptable
   and must be reported as such.
 
 ## To do before M5
 
-1. Read SE(3)-PoseFlow, ActivePose and arXiv:2403.10454 in full; record each one's objective.
+1. ~~SE(3)-PoseFlow~~ (done). Read ActivePose and arXiv:2403.10454 in full; record each one's objective.
 2. Search for task-driven NBV / value-of-information in grasping (e.g. "value of information
    grasp", "decision-theoretic active perception manipulation").
 3. Verify the FoundationPose code and weights licenses from the official repository.

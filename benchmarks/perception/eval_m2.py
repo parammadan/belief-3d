@@ -163,6 +163,7 @@ def evaluate(dataset: Path, preds: Path, match_dist: float = 0.05) -> dict:
                      "id_switches": int(mot["idsw"]), "fragmentations": int(mot["frag"]),
                      "MOTA": 1.0 - (mot["fn"] + mot["fp"] + mot["idsw"]) / max(mot["gt"], 1),
                      "MOTA_ci95_over_episodes": _bootstrap_ci(ep_mota),
+                     "MOTA_per_episode": ep_mota,
                      "MOTP_mm": 1e3 * mot["dist_sum"] / max(mot["n_match"], 1),
                      "match_dist_m": match_dist},
         "occlusion_recovery": {"events": recov["events"], "recovered_same_id": recov["recovered_same_id"],

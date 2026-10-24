@@ -17,7 +17,10 @@ def rot6d_to_matrix(x: torch.Tensor) -> torch.Tensor:
     a, b = x[..., :3], x[..., 3:]
     c1 = nn.functional.normalize(a, dim=-1)
     c2 = nn.functional.normalize(b - (c1 * b).sum(-1, keepdim=True) * c1, dim=-1)
-    c3 = torch.cross(c1, c2, dim=-1)
+    # Explicit cross product (identical to torch.cross) so the model exports cleanly to ONNX.
+    c3 = torch.stack([c1[..., 1] * c2[..., 2] - c1[..., 2] * c2[..., 1],
+                      c1[..., 2] * c2[..., 0] - c1[..., 0] * c2[..., 2],
+                      c1[..., 0] * c2[..., 1] - c1[..., 1] * c2[..., 0]], dim=-1)
     return torch.stack([c1, c2, c3], dim=-1)
 
 

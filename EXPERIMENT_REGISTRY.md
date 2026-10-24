@@ -138,3 +138,33 @@ on `dynamic`/`nominal` and `dynamic`/`harsh`.
 - **Limitation:** R-inflation approximates a correlated, constant per-camera bias as white
   noise. The principled model estimates per-camera extrinsic bias as a state; this is left as
   future work.
+
+| ID | Date | Commit | Command | Seeds | Env | Output | Status |
+|---|---|---|---|---|---|---|---|
+| VAL-M4-001 | 2026-10-24 | `19bb083` | `bash experiments/scripts/val_m4_001.sh` | val 1,500,400–1,500,405 (6 eps × 15 frames per condition) | M1 Mac | `reports/m4/val_m4_*_{b1,b2}.json` | done (dev) |
+| VAL-M4-003 | 2026-10-24 | `e1f5589` | `bash experiments/scripts/val_m4_003.sh` | same datasets as VAL-M4-001 | M1 Mac | `reports/m4/val_m4_*_v3_*.json` | running |
+
+## VAL-M4-001: B1 (CV-Kalman) vs B2 (particle belief), same detections, val only
+
+- **Nominal noise.** Both trackers reach MOTA 0.995–0.997 with 0 ID switches.
+  - **Partially visible objects** (< 50 % visible, n = 11, occlusion scenario): B1 median
+    rotation error **83.4°** (single-view face flips) versus B2 **1.47°**; success 0.455 vs
+    1.000. This is the hypothesised benefit, but n = 11 is tiny.
+  - **Overall:** B2's median translation error is worse (0.64–0.75 mm vs 0.24–0.26 mm). This
+    is Monte Carlo approximation error from 256 particles.
+  - **Uncertainty:** B2's 95 % coverage is 0.97 (≈ calibrated). B1's is 1.00 at every level,
+    i.e. over-conservative, because its R carries the 1° calibration prior even when
+    calibration is perfect.
+- **Harsh noise: B2 v1 FAILED.**
+  - MOTA 0.933 vs 0.979, 6 vs 1 ID switches; median rotation 9.7–14.0° vs 3.4–5.0°.
+  - **95 % coverage 0.01–0.02:** the particle belief ignores calibration bias, so it is badly
+    overconfident.
+  - **Cause:** B2's high-resolution likelihood fuses two cameras whose calibration errors
+    disagree by 2–3 cm; free space from one camera contradicts the other camera's points.
+- **Cost:** B2 takes 2.3–2.8 s per frame versus 0.5 ms for B1 (CPU, 256 particles, free space
+  on). That is M7 work.
+- **Fix under development (val only).** Per-frame cross-camera consensus alignment from
+  co-observed objects, plus reported covariance that includes calibration uncertainty /
+  n_cameras. A first variant aligned to the overhead camera; it restored MOTA (0.979), rotation
+  (2.09°) and coverage (0.92) but doubled translation error (22.4 mm), because both cameras
+  inherited one camera's bias. Hence the consensus version, VAL-M4-003.

@@ -45,7 +45,7 @@ SPEC = {o.name: o for o in CATALOG}
 class Episode:
     """Simulator side of one episode (owns ground truth; never handed to the policy)."""
 
-    def __init__(self, seed: int, scenario: str, noise: str):
+    def __init__(self, seed: int, scenario: str, noise: str, cameras: tuple[str, ...] = ("overhead", "mobile")):
         ss = np.random.SeedSequence(seed).spawn(5)
         self.layout_seed = int(ss[0].generate_state(1)[0])
         self.view_rng, self.calib_rng, self.noise_rng, scen_rng = (np.random.default_rng(s) for s in ss[1:])
@@ -55,7 +55,7 @@ class Episode:
         self.scene.reset(seed=self.layout_seed)
         self.views = ViewpointSet(self.scene)
         self.noise = PRESETS[noise]
-        self.sensors = {c: RGBDSensor(self.scene, c, compute_visibility=False) for c in ("overhead", "mobile")}
+        self.sensors = {c: RGBDSensor(self.scene, c, compute_visibility=False) for c in cameras}
         self.calib = {c: CalibrationError.sample(self.noise, self.calib_rng) for c in self.sensors}
         self.view = int(self.view_rng.integers(len(self.views)))
         self.views.move_camera(self.view)
@@ -91,7 +91,7 @@ def step_tracker(tracker, frames, k):
         dets += res.detections
         views[c] = DepthView(obs.depth, obs.intrinsics, obs.T_WC)
         t = obs.timestamp
-    return tracker.step(t, dets, views), frames["overhead"][0].intrinsics
+    return tracker.step(t, dets, views), next(iter(frames.values()))[0].intrinsics
 
 
 def evaluate_grasp(ep: Episode, spec, g, gt_frame) -> dict:
@@ -109,8 +109,9 @@ def evaluate_grasp(ep: Episode, spec, g, gt_frame) -> dict:
             "true_class": best[1].class_name}
 
 
-def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: str, rng_seed: int) -> dict:
-    ep = Episode(seed, scenario, noise)
+def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: str, rng_seed: int,
+                cameras: tuple[str, ...] = ("overhead", "mobile")) -> dict:
+    ep = Episode(seed, scenario, noise, cameras)
     tracker = BeliefTracker(TrackerConfig(calib_rot_sigma=np.radians(1.0), calib_trans_sigma=0.005),
                             BeliefConfig(), seed=seed)
     t0 = time.perf_counter()
@@ -148,7 +149,7 @@ def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: 
         frames = ep.observe()
         step_tracker(tracker, frames, k)
     tgt = next((tr for tr in tracker.tracks if tr.track_id == tid), None)
-    gt_frame = frames["overhead"][1]
+    gt_frame = next(iter(frames.values()))[1]
     if tgt is None:
         result = {"success": False, "reason": "target track lost"}
         final_modes, final_risk = 0, None
@@ -160,6 +161,7 @@ def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: 
         final_modes, final_risk = len(modes.weights), risk.grasp_now_loss(ctx_for(tgt))
     ep.close()
     return {"seed": seed, "policy": policy_name, "budget": budget, "scenario": scenario, "noise": noise,
+            "cameras": list(cameras),
             "target_class": target.spec_name, "init_modes": init_modes, "init_risk": init_risk,
             "ambiguous_t0": bool(init_modes >= 2 or init_risk > 0.1), "views": chosen, "travel_s": travel,
             "final_modes": final_modes, "final_risk": final_risk, "decide_ms_mean": 1e3 * float(np.mean(decide_s)) if decide_s else None,
@@ -175,8 +177,10 @@ def main() -> None:
     ap.add_argument("--budget", type=int, default=2)
     ap.add_argument("--scenario", default="occlusion")
     ap.add_argument("--noise", default="nominal")
+    ap.add_argument("--cameras", default="overhead,mobile")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
+    cams = tuple(a.cameras.split(","))
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     done = set()
@@ -189,7 +193,7 @@ def main() -> None:
             for p in a.policies.split(","):
                 if (seed, p) in done:
                     continue
-                r = run_episode(seed, p, a.budget, a.scenario, a.noise, rng_seed=seed + 17)
+                r = run_episode(seed, p, a.budget, a.scenario, a.noise, rng_seed=seed + 17, cameras=cams)
                 f.write(json.dumps(r) + "\n")
                 f.flush()
                 print(json.dumps({k: r.get(k) for k in ("seed", "policy", "ambiguous_t0", "views", "success", "wall_s")}))

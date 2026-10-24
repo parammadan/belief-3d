@@ -98,3 +98,43 @@ situation active viewpoint selection (M5) must exploit.
   bootstrap 95 % CI and an exact two-sided sign test. The overhead-only arm is reported as a
   control (expected ≈ 0 effect).
 - **Commitment:** the result is reported as-is, whatever its direction.
+
+| ID | Date | Commit | Command | Seeds | Env | Output | Status |
+|---|---|---|---|---|---|---|---|
+| VAL-M4P-001 | 2026-10-24 | `b294403` | `bash experiments/scripts/val_calib_sweep.sh` | val 1,500,200–1,500,207 | M1 Mac | `reports/m4p/val_dynamic_*.json` | done (selection) |
+| EXP-M4P-001 | 2026-10-24 | `b294403` | `bash experiments/scripts/exp_m4p_001.sh` + `experiments/analysis/paired.py` | test 2,000,000–2,000,009 | M1 Mac | `reports/m4p/test_*.json`, `paired_test.txt` | done |
+| EXP-M4P-002 | 2026-10-24 | `b294403` | `bash experiments/scripts/exp_m4p_002.sh` (pre-registered above) | test 2,000,010–2,000,049 | M1 Mac | `reports/m4p/m4p2_*`, `exp_m4p_002_paired.txt` | done |
+
+## VAL-M4P-001: choosing the tracker's calibration-uncertainty prior (val only)
+
+Swept σ_rot ∈ {0, 0.5, 1, 1.5, 2, 3}° with σ_trans = 5 mm per degree, for both camera modes,
+on `dynamic`/`nominal` and `dynamic`/`harsh`.
+- **Harsh, two cameras:** MOTA 0.937 → 0.972 for any σ ≥ 0.5°.
+- **Nominal, overhead only:** unchanged up to 1°, but drops to ~0.84 at ≥ 1.5°. Inflating R for
+  what is really a *constant per-camera bias* slows the filter's response to kicked objects.
+- **Selection rule:** the largest σ that leaves every nominal condition unchanged, among those
+  achieving the best harsh two-camera MOTA. That gives **σ_rot = 1°, σ_trans = 5 mm**.
+
+## EXP-M4P-001: same 10 test episodes as EXP-M2-001
+
+- **Reproducibility check:** σ = 0 reproduces EXP-M2-001 exactly in 8/8 conditions, from
+  bit-identically regenerated data.
+- **σ = 1°, harsh, two cameras:** MOTA 0.736 → 0.984, ID switches 26 → 0, FP 133 → 2. No
+  condition got worse.
+- **Paired test:** the gain comes from 3 of 10 episodes (the rest are tied). Mean +0.254,
+  bootstrap 95 % CI [0.000, 0.619], sign test p = 0.25. **Not significant at n = 10**, which
+  motivated the pre-registered EXP-M4P-002.
+
+## EXP-M4P-002 result (pre-registered hypothesis: CONFIRMED)
+
+| Arm | MOTA σ = 0 → σ = 1° | Mean paired Δ | 95 % CI | Better / worse / tied (of 40) | Sign test p |
+|---|---|---|---|---|---|
+| overhead + mobile | 0.806 → 0.972 | **+0.156** | [0.079, 0.242] | 14 / 0 / 26 | **0.00012** |
+| overhead only (control) | 0.717 → 0.715 | −0.002 | [−0.006, 0.000] | 0 / 1 / 39 | 1.0 |
+
+- **Two-camera ID switches:** 61 → 7; FP 437 → 37.
+- **Control arm:** no effect, as predicted. Its one worse episode is consistent with the
+  responsiveness cost seen on val.
+- **Limitation:** R-inflation approximates a correlated, constant per-camera bias as white
+  noise. The principled model estimates per-camera extrinsic bias as a state; this is left as
+  future work.

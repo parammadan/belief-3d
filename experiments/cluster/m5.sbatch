@@ -17,8 +17,10 @@ i=$SLURM_ARRAY_TASK_ID
 CAMS_=$(echo "${CAMS:-overhead:mobile}" | tr ':' ',')
 ELEV_=$(echo "${ELEV:-35:60}" | tr ':' ',')
 POL_=$(echo "${POLICIES:-fixed:random:entropy:covariance:task_risk}" | tr ':' ',')
+EXTRA=""
+[ "${SELFCAL:-0}" = "1" ] && EXTRA="--selfcal"     # explicit: SELFCAL=0 must NOT enable it
 mkdir -p ../reports/m5/${TAG}
 ../env/bin/python scripts/run_m5.py --split ${SPLIT} --offset $((BASE + i*EPS)) --episodes ${EPS} \
     --scenario ${SCEN:-occlusion} --noise ${NOISE:-nominal} --budget ${BUDGET:-2} --cameras $CAMS_ \
     --elevations $ELEV_ \
-    --policies $POL_ ${PHYS:+--physical} --out ../reports/m5/${TAG}/shard_$(printf %03d $i).jsonl
+    --policies $POL_ ${PHYS:+--physical} $EXTRA --out ../reports/m5/${TAG}/shard_$(printf %03d $i).jsonl

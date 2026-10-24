@@ -112,9 +112,15 @@ def main() -> None:
     if report["onnx_export"] == "ok":
         import onnxruntime as ort
         report["onnxruntime"] = ort.__version__
+        cache = str(Path(a.out).parent / "trt_cache")
+        Path(cache).mkdir(parents=True, exist_ok=True)
+        shp = lambda b: f"points:{b}x512x3,cls:{b}"
+        trt_opts = {"trt_fp16_enable": True, "trt_engine_cache_enable": True, "trt_engine_cache_path": cache,
+                    # Explicit shape profile: without it, dynamic batch re-planned engines (~200 ms/call).
+                    "trt_profile_min_shapes": shp(1), "trt_profile_opt_shapes": shp(32),
+                    "trt_profile_max_shapes": shp(max(batches))}
         for name, provs in (("ort_cuda", ["CUDAExecutionProvider"]),
-                            ("ort_tensorrt_fp16", [("TensorrtExecutionProvider", {"trt_fp16_enable": True}),
-                                                   "CUDAExecutionProvider"])):
+                            ("ort_tensorrt_fp16", [("TensorrtExecutionProvider", trt_opts), "CUDAExecutionProvider"])):
             try:
                 so = ort.SessionOptions()
                 so.intra_op_num_threads = 4          # explicit: avoids affinity errors on shared nodes
@@ -129,8 +135,21 @@ def main() -> None:
                 full = {"points": pts, "cls": cls}
                 row["accuracy"] = accuracy(sess.run(None, full))
                 for b in batches:
+                    # Host->device copies included (what a numpy caller pays) ...
                     feed = {"points": pts[:b], "cls": cls[:b]}
                     lat = timeit(lambda feed=feed, sess=sess: sess.run(None, feed), a.iters, 20, lambda: None)
+                    row[f"b{b}_host_io"] = stats(lat, b)
+                    # ... and device-resident I/O via IOBinding (comparable to the torch timings,
+                    # whose inputs are already on the GPU).
+                    io = sess.io_binding()
+                    xp = ort.OrtValue.ortvalue_from_numpy(pts[:b], "cuda", 0)
+                    xc = ort.OrtValue.ortvalue_from_numpy(cls[:b], "cuda", 0)
+                    io.bind_ortvalue_input("points", xp)
+                    io.bind_ortvalue_input("cls", xc)
+                    for o in ("R", "t", "logits"):
+                        io.bind_output(o, "cuda")
+                    lat = timeit(lambda io=io, sess=sess: sess.run_with_iobinding(io), a.iters, 20,
+                                 lambda io=io: io.synchronize_outputs())
                     row[f"b{b}"] = stats(lat, b)
                 report["backends"][name] = row
             except Exception as e:  # noqa: BLE001

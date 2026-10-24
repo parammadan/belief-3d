@@ -326,3 +326,27 @@ it is the M3 baseline comparison, run once. Report: `reports/m3/eval_m3_pose_v1.
   (1) add a mug primitive (cylinder + handle) whose handle can self-occlude, creating
   grasp-relevant yaw ambiguity — SE(3)-PoseFlow's example case; (2) make task-risk
   calibration-aware.
+
+## VAL-M5-003: mug regime + a rejected perception change (val)
+
+- **Mug probe** (12 val episodes): ambiguity at t₀ is 0/12 with the mobile camera only and
+  1/12 with overhead + mobile.
+- **Diagnosis** (8 episodes): in 7/7 detected cases the mug's handle was visible and yaw
+  was correct, with a single mode and 1.1–2.3° error. From the 35–60° elevated candidate
+  views, a horizontally protruding handle stays visible even when it points away from the
+  camera.
+- **Finding:** with elevated cameras, known CAD and good depth, grasp-relevant visual
+  ambiguity is rare. Active viewpoint selection has little to act on there.
+- **Detection miss** (val seed 1,500,800): a touching neighbour merged into the mug's
+  segment; the merged blob's fit RMS was 10.5 mm, over the 10 mm cutoff, so it was dropped.
+- **Hypothesised fix, rejected on evidence:** hue-gated seed growth, scored with
+  `experiments/analysis/seg_probe.py` on 6 val episodes per scenario.
+
+  | Scenario | TP / FN / FP, with gate | without gate |
+  |---|---|---|
+  | clutter | 70 / 4 / 3 | 71 / 3 / 2 |
+  | mugs | 58 / 4 / 1 | 59 / 3 / 0 |
+  | varied | 53 / 1 / 0 | 53 / 1 / 0 |
+
+  No improvement, so the change was **reverted**; merges in tight clutter stay a known
+  limitation.

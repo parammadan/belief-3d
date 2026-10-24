@@ -632,3 +632,21 @@ were re-copied (tar over ssh), and the analysis below uses the full sample.
   to report a fallback. Root cause (run 11352235): onnxruntime-gpu 1.31 targets CUDA 13
   (`libcublas.so.13`), while torch cu124 bundles CUDA 12. Being re-done with a version-consistent
   stack (onnxruntime-gpu 1.22, CUDA 12 build; TensorRT 10.x).
+
+## PERF-M7-003: fair ONNX Runtime comparison (V100; onnxruntime-gpu 1.22 / CUDA 12; GPU-resident I/O via IOBinding)
+
+| Backend (device-resident I/O) | b1 median / p99 | b32 median | b256 median | Accuracy vs fp32 |
+|---|---|---|---|---|
+| PyTorch fp32 | 1.049 / 1.064 ms | 1.333 ms | 6.770 ms | reference (4.920 mm) |
+| PyTorch fp16 autocast | 1.200 / 1.216 ms | 1.201 ms | 4.935 ms | 4.915 mm; argmax agree 0.9995 |
+| **ONNX Runtime CUDA** | **0.482 / 0.493 ms** | 1.886 ms | 13.722 ms | 4.920 mm; max \|ΔR\| 2.3e-4; argmax agree 1.000 |
+
+- **ORT CUDA is 2.2× faster at batch 1** (lower per-call dispatch overhead) but slower at batch
+  32 (1.4×) and batch 256 (2.0×), where its kernels lose to PyTorch's.
+- **Host copies cost little** (b1 0.551 vs 0.482 ms; b256 14.1 vs 13.7 ms).
+- **Deployment reading.** The perception pipeline calls the proposer per segment (batch ≈ 1–6),
+  so ORT CUDA is the better backend for this workload, and for large offline batches PyTorch
+  fp16 is best (51.9k samples/s).
+- **TensorRT on V100: not supported.** TensorRT 10.16 rejects SM 70 ("Target GPU SM 70 is not
+  supported by this TensorRT release"). The earlier 200 ms "TensorRT" timings were ORT partially
+  falling back and are **discarded**. Being re-run on an A100 (SM 80).

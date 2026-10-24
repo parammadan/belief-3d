@@ -1,0 +1,120 @@
+{
+ "gpu": "Tesla V100-SXM2-32GB",
+ "torch": "2.6.0+cu124",
+ "checkpoint": "../runs/pose_v1/best.pt",
+ "n_eval": 2048,
+ "backends": {
+  "torch_fp32": {
+   "accuracy": {
+    "max_abs_diff_R": 0.0,
+    "max_abs_diff_t_m": 0.0,
+    "top1_mm": 4.919630475342274,
+    "argmax_agreement": 1.0
+   },
+   "b1": {
+    "median_ms": 1.0488750413060188,
+    "p95_ms": 1.056288433028385,
+    "p99_ms": 1.0637886298354715,
+    "throughput_per_s": 953.4024174651335,
+    "peak_mem_mb": 29.342208
+   },
+   "b32": {
+    "median_ms": 1.3329775538295507,
+    "p95_ms": 1.3514562335330993,
+    "p99_ms": 1.3684049481526008,
+    "throughput_per_s": 24006.405740341426,
+    "peak_mem_mb": 78.0288
+   },
+   "b256": {
+    "median_ms": 6.769980012904853,
+    "p95_ms": 6.796328350901604,
+    "p99_ms": 6.805580741493031,
+    "throughput_per_s": 37813.99642421631,
+    "peak_mem_mb": 431.726592
+   }
+  },
+  "torch_fp16_autocast": {
+   "accuracy": {
+    "max_abs_diff_R": 0.30841708183288574,
+    "max_abs_diff_t_m": 0.00013093982124701142,
+    "top1_mm": 4.915050230920315,
+    "argmax_agreement": 0.99951171875
+   },
+   "b1": {
+    "median_ms": 1.199810008984059,
+    "p95_ms": 1.2098181818146259,
+    "p99_ms": 1.2155090179294346,
+    "throughput_per_s": 833.4652924313838,
+    "peak_mem_mb": 29.796352
+   },
+   "b32": {
+    "median_ms": 1.2012135121040046,
+    "p95_ms": 1.2103661254514009,
+    "p99_ms": 1.2134530150797218,
+    "throughput_per_s": 26639.726974058,
+    "peak_mem_mb": 70.683648
+   },
+   "b256": {
+    "median_ms": 4.9350515473634005,
+    "p95_ms": 4.943474073661491,
+    "p99_ms": 4.955470606219023,
+    "throughput_per_s": 51873.82493233946,
+    "peak_mem_mb": 366.134272
+   }
+  },
+  "ort_cuda": {
+   "providers_used": [
+    "CUDAExecutionProvider",
+    "CPUExecutionProvider"
+   ],
+   "accuracy": {
+    "max_abs_diff_R": 0.00023379921913146973,
+    "max_abs_diff_t_m": 3.585591912269592e-08,
+    "top1_mm": 4.919630475342274,
+    "argmax_agreement": 1.0
+   },
+   "b1_host_io": {
+    "median_ms": 0.5512390052899718,
+    "p95_ms": 0.5644468823447824,
+    "p99_ms": 0.5742016772273927,
+    "throughput_per_s": 1814.0951391383553
+   },
+   "b1": {
+    "median_ms": 0.4817795124836266,
+    "p95_ms": 0.4908316826913506,
+    "p99_ms": 0.4926959041040391,
+    "throughput_per_s": 2075.638282842061
+   },
+   "b32_host_io": {
+    "median_ms": 1.9704470178112388,
+    "p95_ms": 2.004222833784297,
+    "p99_ms": 2.0674105547368526,
+    "throughput_per_s": 16239.96976865961
+   },
+   "b32": {
+    "median_ms": 1.885941019281745,
+    "p95_ms": 1.918347884202376,
+    "p99_ms": 1.926055799704045,
+    "throughput_per_s": 16967.656821095658
+   },
+   "b256_host_io": {
+    "median_ms": 14.105596987064928,
+    "p95_ms": 14.208023506216705,
+    "p99_ms": 14.253459821920842,
+    "throughput_per_s": 18148.824203240485
+   },
+   "b256": {
+    "median_ms": 13.722390518523753,
+    "p95_ms": 13.824447174556553,
+    "p99_ms": 13.861334654502569,
+    "throughput_per_s": 18655.641643081613
+   }
+  },
+  "ort_tensorrt_fp16": {
+   "unavailable": "Fail: [ONNXRuntimeError] : 1 : FAIL : TensorRT EP failed to create engine from network for fused node: TensorrtExecutionProvider_TRTKernel_graph_main_graph_13587738952719174878_0_0"
+  }
+ },
+ "reference_top1_mm": 4.919630475342274,
+ "onnx_export": "ok",
+ "onnxruntime": "1.22.0"
+}

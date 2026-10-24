@@ -41,7 +41,7 @@ def probe(seed, scenario, noise, cams):
             l = risk.grasp_now_loss(ctx)
             if best is None or l > best[0]:
                 best = (l, len(modes_of(t.belief).weights))
-        out = {"risk": best[0], "modes": best[1], "n_tracks": len(tracks), "n_objects": len(ep.scenario.objects)}
+        out = {"risk": float(best[0]), "modes": int(best[1]), "n_tracks": len(tracks), "n_objects": len(ep.scenario.objects)}
     ep.close()
     return out
 
@@ -59,7 +59,7 @@ def main():
         amb = [r for r in rows if r["modes"] >= 2 or r["risk"] > 0.1]
         print(json.dumps({"regime": f"{sc}/{nz}/{'+'.join(cams)}", "n": len(rows), "ambiguous": len(amb),
                           "risk_mean": round(float(np.mean([r['risk'] for r in rows])), 3),
-                          "risk>0.3": sum(r['risk'] > 0.3 for r in rows),
+                          "risk>0.3": int(sum(r["risk"] > 0.3 for r in rows)),
                           "tracks/objects": round(float(np.mean([r['n_tracks'] / r['n_objects'] for r in rows])), 2)}))
 
 

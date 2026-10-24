@@ -16,3 +16,4 @@ reports/m*/*.npz
 MUJOCO_LOG.TXT
 sim/assets/third_party/
 preds/
+logs/

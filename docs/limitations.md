@@ -19,3 +19,13 @@
 - **Grasp physics is MuJoCo soft contact.** Lift success in simulation is not evidence of
   real-world grasp robustness.
 - **Noise presets are parametric guesses.** `nominal`/`harsh` are not fitted to any sensor.
+- **Classical perception relies on colour.** Detection assumes saturated, catalog-hued objects
+  on an unsaturated support plane. It would not transfer to grey metal parts.
+- **The support prior assumes resting objects.** The pose fit uses a soft "touching the
+  table" prior. Disable it (`support_sigma=None`) for stacking or in-hand scenes.
+- **Not real-time.** Classical perception takes ~260–350 ms per camera frame on the M1 CPU.
+- **Calibration limits accuracy.** At about 11.6 mm per degree of extrinsic drift, calibration
+  dominates pose error as soon as drift exceeds ~0.05°. Single-image re-calibration at 320×240
+  cannot recover drift below ~1°.
+- **All M2 numbers are simulation-only, over 10 test episodes per condition.** The CIs are
+  bootstrap over episodes and are wide where only a few episodes drive the errors.

@@ -45,6 +45,11 @@ All code in `perception/geometry/` implements these; `tests/unit/test_se3.py`,
 ## Symmetries (for evaluation)
 
 `ObjectState.symmetry ∈ {none, box, cylindrical_z, spherical}`. Pose errors for symmetric objects
-must be taken as the minimum over the symmetry group (box: 8 discrete proper rotations for
-distinct extents; cylinder: continuous about local z plus a flip if capped ends are identical;
-sphere: rotation unobservable, evaluate translation only). This is implemented in M2.
+must be taken as the minimum over the proper symmetry group:
+- box with three distinct extents: D2, **4** rotations. (An earlier version of this doc said 8,
+  which wrongly counted reflections.)
+- box with two equal extents: 8 rotations; a cube: 24.
+- cylinder: continuous rotation about local z plus a π flip.
+- sphere: rotation unobservable, so only translation is evaluated.
+
+Implemented in `benchmarks/metrics.py` (M2) and tested in `tests/unit/test_pose_metrics.py`.

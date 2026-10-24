@@ -18,8 +18,14 @@
 | §7 visibility/occlusion metadata | `sim/cameras/rgbd.py` | `test_robot.py::test_observe_pose_keeps_objects_visible`, `test_scenario.py` | done |
 | §8 dataset + manifests + validators | `data/generators`, `data/validators` | `tests/integration/test_dataset.py` (replay, 6 negative cases) | done (held-out meshes/textures: not yet) |
 | §8 splits by seed | `data/schemas/splits.py` | `test_splits_are_disjoint_and_cover_seeds` | done |
-| §5.1 symmetry-aware errors, §10 pose | `perception/pose` | — | M2 |
-| §11 tracking | `tracking/` | — | M2 |
+| §5.1 symmetry-aware errors | `benchmarks/metrics.py` | `test_pose_metrics.py` | done |
+| §9 classical detection/segmentation | `perception/segmentation/classical.py` | `test_segmentation.py`, EXP-M2-001 | done |
+| §9 depth: back-projection, plane estimation, outliers, depth-noise handling | `classical.py` (RANSAC + MAD), `primitive_fit.py` (soft-L1) | `test_plane_fit_and_noise_estimate_on_synthetic_points` | done |
+| §9 calibration as a subsystem (targets, perturbations, reprojection/triangulation/3D error) | `perception/calibration/fiducial.py`, `benchmarks/calibration/calib_sweep.py` | `test_calibration.py`, EXP-M2-002 | done |
+| §10 level-1 geometric pose | `perception/pose/primitive_fit.py` | `test_zero_noise_recovery_*`, `test_support_prior_*`, EXP-M2-001 | done |
+| §10 level-2/3 neural / published pose | — | — | M3 |
+| §11 tracking: IDs, history, motion, misses, occlusion state, recovery | `tracking/tracker.py`, `filters/kalman.py`, `association/hungarian.py` | `test_tracking.py`, EXP-M2-001 | done (CLEAR-MOT; HOTA not yet) |
+| §11 metrics from predicted tracks, not oracle IDs | `benchmarks/perception/eval_m2.py` | reads only preds + gt files | done |
 | §12 belief tracking | `tracking/belief` | — | M4 |
 | §14 policies | `policies/` | — | M5 |
 | §19 C++ components | `cpp/` | — | M7 (cmake not installed) |

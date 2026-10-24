@@ -11,11 +11,29 @@ hypothesis. Prior work that overlaps with it is listed in
 
 ## Status
 
-**M0 and M1 complete.** M0: environment audit, geometry core, validated camera geometry.
-M1: Franka Panda with IK and verified grasp physics, a movable-camera viewpoint set, seeded sensor
-noise, occlusion/motion scenarios, and a versioned dataset writer with a validator. See
-[`PROJECT_STATE.md`](PROJECT_STATE.md) for exactly what is and isn't built. Perception, tracking
-and policies (M2+) are not implemented yet.
+**M0–M2 complete** (simulation only):
+- **M0:** environment audit, geometry core, validated camera geometry.
+- **M1:** Franka Panda with IK and grasp physics, movable-camera viewpoints, seeded noise,
+  occlusion/motion scenarios, versioned datasets with a validator.
+- **M2:** classical perception baseline (plane + seed-and-grow segmentation, SDF-based 6D
+  fitting of known primitives), unimodal Kalman tracking, calibration checks, and an
+  independent evaluator.
+
+Neural pose (M3), belief tracking (M4) and active policies (M5) are not implemented yet. See
+[`PROJECT_STATE.md`](PROJECT_STATE.md).
+
+**M2 headline (held-out test seeds, nominal noise; [full tables](reports/tables/m2_results.md)):**
+- Median pose error is **0.25–0.60 mm** in translation and **0.19–0.83°** in rotation
+  (symmetry-aware).
+- Tracking MOTA is **0.85–0.88** with the overhead camera only, and **0.98–1.00** when the
+  mobile camera is added.
+
+Two caveats:
+- With ~1° calibration drift, error grows to **16–22 mm**, and adding the second camera then
+  *hurts* tracking. The cause is that calibration uncertainty isn't modelled yet. This is a
+  recorded negative result ([EXP-M2-001](EXPERIMENT_REGISTRY.md)).
+- Localisation degrades by about **11.6 mm per degree** of extrinsic drift
+  ([EXP-M2-002](EXPERIMENT_REGISTRY.md)).
 
 Controlled occlusion (EXP-M1-002). The top row is overhead, where the plate fully hides the
 blue sphere. The bottom row is the mobile camera, which can still see it:

@@ -9,12 +9,12 @@ sim.environments.TabletopScene + Scenario  [done: table, Panda, 3–6 objects, 2
 sim.cameras.RGBDSensor.capture() ──► (Observation, GroundTruth)   [done]
       │ Observation only                       │ GroundTruth only
       ▼                                        ▼
-perception.geometry (SE3, pinhole)  [done]    data writer + validator [done] / evaluators [M2]
-perception.calibration              [M2]
-perception.detection / segmentation [M2 classical, M3 neural]
-perception.pose (ICP/PnP → neural)  [M2 / M3]
-tracking.association (Hungarian)    [M2]
-tracking.filters (EKF), tracking.belief (PF / mixture)  [M2 / M4]
+perception.geometry (SE3, pinhole)  [done]    data writer + validator [done] / evaluators [done: eval_m2, calib_sweep]
+perception.calibration (fiducial PnP, triangulation)      [done]
+perception.segmentation (plane + seed-and-grow)          [done; neural M3]
+perception.pose (SDF fit + support prior, completeness)  [done; neural M3]
+tracking.association (Hungarian, χ² gate)                [done]
+tracking.filters (CV Kalman) [done], tracking.belief (PF / mixture) [M4]
 policies.{fixed,random,information_gain,risk_aware}     [M5]
 sim.robot.Panda (FK/IK/gripper)  [done]  →  manipulation.{grasping,motion,recovery}  [M6]
       │ action (camera pose / grasp)

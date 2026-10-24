@@ -48,7 +48,7 @@ def test_signature_mismatch_basics():
     assert mismatch(s1, s1, 0.002) == (0.0, len(s1))
     T_up = T.copy()
     T_up[2, 3] += 0.01
-    m, n = mismatch(s1, target_signature(r, TOP, box, T_up, [], PLANE), 0.002)
+    m, _ = mismatch(s1, target_signature(r, TOP, box, T_up, [], PLANE), 0.002)
     assert m > 1.0
 
 

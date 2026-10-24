@@ -151,3 +151,31 @@ def test_meas_cov_adds_range_scaled_calibration_term():
     d = Detection("overhead", 0.0, "red", "box_red", T, 0.001, 100, 1.0, 2.0)
     R = tr.meas_cov(d)
     assert np.allclose(R, np.eye(3) * (0.002**2 + (0.01 * 2.0) ** 2 + 0.002**2))
+
+
+def test_relative_calibration_recovers_shared_camera_offset():
+    from tracking.belief_tracker import BeliefTracker
+    tr = BeliefTracker(TrackerConfig(calib_rot_sigma=np.radians(1.0), calib_trans_sigma=0.005))
+    bias = np.array([0.012, -0.008, 0.004])                     # mobile reports everything shifted by -bias
+    rng = np.random.default_rng(0)
+    dets = []
+    for i, (cls, p) in enumerate([("red", [0.0, 0.0, 0.43]), ("green", [0.1, 0.05, 0.43]), ("blue", [-0.05, 0.1, 0.43])]):
+        p = np.array(p)
+        for cam, q in (("overhead", p), ("mobile", p - bias)):
+            T = np.eye(4)
+            T[:3, 3] = q + rng.normal(0, 0.0005, 3)
+            dets.append(Detection(cam, 0.0, cls, f"x{i}", T, 0.001, 100, 0.9, 0.8))
+    off = tr._relative_offsets(dets)
+    # consensus alignment: each camera moves half-way, so the cameras agree afterwards
+    assert np.linalg.norm(off["mobile"] - bias / 2) < 0.002
+    assert np.linalg.norm(off["overhead"] + bias / 2) < 0.002
+
+
+def test_relative_calibration_ignores_unmatched_objects():
+    from tracking.belief_tracker import BeliefTracker
+    tr = BeliefTracker(TrackerConfig(calib_rot_sigma=np.radians(1.0), calib_trans_sigma=0.005))
+    T1, T2 = np.eye(4), np.eye(4)
+    T2[:3, 3] = [0.2, 0.0, 0.0]                                  # 20 cm apart: different objects
+    dets = [Detection("overhead", 0.0, "red", "a", T1, 0.001, 100, 0.9, 0.8),
+            Detection("mobile", 0.0, "red", "a", T2, 0.001, 100, 0.9, 0.8)]
+    assert tr._relative_offsets(dets) == {}

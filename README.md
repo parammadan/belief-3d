@@ -48,3 +48,14 @@ export PYTHONPATH=.
 ## License
 
 MIT
+
+## C++ kernels (optional)
+
+The belief's free-space likelihood has a pybind11 port, which gives the same numbers and runs a
+belief update 3.4× faster (PERF-M7-005):
+
+```bash
+cmake -S . -B cpp/build -DPython_EXECUTABLE=$(which python) && cmake --build cpp/build -j4
+```
+
+Use it with `BeliefConfig(fs_backend="cpp")`. Without the build, `tests/unit/test_cpp_kernels.py` skips.

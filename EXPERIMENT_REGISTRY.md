@@ -650,3 +650,30 @@ were re-copied (tar over ssh), and the analysis below uses the full sample.
 - **TensorRT on V100: not supported.** TensorRT 10.16 rejects SM 70 ("Target GPU SM 70 is not
   supported by this TensorRT release"). The earlier 200 ms "TensorRT" timings were ORT partially
   falling back and are **discarded**. Being re-run on an A100 (SM 80).
+
+## PERF-M7-005: C++ free-space likelihood (pybind11; M1 Mac, single thread, Apple clang -O3, no fast-math)
+
+`cpp/src/free_space.cpp` is an exact port of `PoseBelief.free_space_log_lik`, enabled with
+`BeliefConfig(fs_backend="cpp")`. The default stays `"numpy"`, so earlier runs replay unchanged.
+The kernel fuses the per-particle × per-sample loop, which removes the N × M temporaries.
+Rounding uses `nearbyint` (round-half-to-even, like `np.round`), so pixel lookups match.
+
+| Object (M samples) | N=256 NumPy → C++ | N=1024 NumPy → C++ |
+|---|---|---|
+| box_red (902) | 7.22 → 1.46 ms (4.9×) | 35.2 → 5.92 ms (5.9×) |
+| cyl_green (1007) | 7.88 → 1.64 ms (4.8×) | 36.3 → 6.95 ms (5.2×) |
+| sphere_blue (615) | 5.25 → 1.05 ms (5.0×) | 23.7 → 4.51 ms (5.2×) |
+| mug_cyan (1633) | 13.6 → 2.86 ms (4.8×) | 94.4 → 11.3 ms (8.3×)* |
+
+(All 8 catalogue objects are in `reports/m7/free_space_bench_m1.json`; the range is 4.8–6.9×,
+excluding the starred row.) *The mug N=1024 NumPy time was 51.6 ms in an earlier run of the
+same script (4.7×), so treat 8.3× as timing noise.
+
+- **Equivalence:** max |Δ| ≤ 2.7e-13 nats over every row.
+  `tests/unit/test_cpp_kernels.py` checks 4 shapes × 3 seeds with wide clouds (rtol 1e-9). CI
+  now builds the extension, so the test runs there instead of skipping.
+- **End to end (5 updates, 256 particles, 2 views):** 163.8 → 48.0 ms per update (**3.4×**).
+  With the same seed, the particle sets after 5 updates are identical between backends (atol
+  1e-9). The surface SDF term, resampling and MCMC are still NumPy.
+- **Not done:** multithreading. Apple clang ships without OpenMP, and the loop over particles is
+  embarrassingly parallel, so this is the next step if it is needed.

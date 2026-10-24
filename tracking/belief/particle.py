@@ -95,6 +95,7 @@ class BeliefConfig:
     fs_weight: float = 1.0                # lambda_fs; 0 disables the free-space term
     fs_spacing: float = 0.004             # m between model surface samples (~1 px at 0.8 m)
     fs_margin: float = 0.005              # m behind the model surface before a violation counts
+    fs_backend: str = "numpy"             # "cpp": the pybind11 kernel in cpp/ (same numbers, see PERF-M7-005)
 
 
 def lowest_point_heights(spec: ObjectSpec, R: np.ndarray, x: np.ndarray, n: np.ndarray, d: float) -> np.ndarray:
@@ -190,6 +191,11 @@ class PoseBelief:
     def free_space_log_lik(self, view: DepthView, s: float) -> np.ndarray:
         c = self.cfg
         T_CW = se3.inv_T(view.T_WC)
+        if c.fs_backend == "cpp":
+            from tracking.belief._cpp import kernels
+            return kernels().free_space_log_lik(self.R, self.x, self._S_O, self._N_O, T_CW, view.K.fx, view.K.fy,
+                                                view.K.cx, view.K.cy, view.depth, self._area_per_sample, s,
+                                                c.fs_margin, c.fs_weight, c.temper)
         # Compose camera<-object per particle, then one batched BLAS matmul per array.
         # (einsum here was 76 % of update time; profiled 2026-10-24.)
         R_C = T_CW[:3, :3] @ self.R                                      # (N, 3, 3)

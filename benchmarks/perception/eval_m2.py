@@ -50,7 +50,8 @@ def _bootstrap_ci(values: list[float], n: int = 2000, seed: int = 0) -> list[flo
 
 def evaluate(dataset: Path, preds: Path, match_dist: float = 0.05) -> dict:
     manifest = json.loads((dataset / "manifest.json").read_text())
-    cams = manifest["config"]["cameras"]
+    meta = preds / "meta.json"
+    cams = json.loads(meta.read_text())["cameras"] if meta.exists() else manifest["config"]["cameras"]
     det_counts = defaultdict(int)
     ious, cls_ok, pose_rows = [], [], []
     ep_mota, mot = [], defaultdict(float)
@@ -94,6 +95,7 @@ def evaluate(dataset: Path, preds: Path, match_dist: float = 0.05) -> dict:
         dist_sum = n_match = 0
         for k in range(ep["n_frames"]):
             ref = gtj[(k, cams[0])]["objects"]
+            # "hidden" is judged over the cameras the method actually used
             vis = {o["instance_id"]: max(gtj[(k, c)]["objects"][n]["visible_fraction"] for c in cams)
                    for n, o in enumerate(ref)}
             tracks = P["frames"][k]["tracks"]
@@ -146,6 +148,7 @@ def evaluate(dataset: Path, preds: Path, match_dist: float = 0.05) -> dict:
     tp, fpd, fnd = det_counts["tp"], det_counts["fp"], det_counts["fn"]
     report = {
         "dataset": manifest["name"], "episodes": len(manifest["episodes"]), "dataset_commit": manifest["git_commit"],
+        "cameras": cams,
         "detection": {"tp": tp, "fp": fpd, "fn": fnd,
                       "precision": tp / max(tp + fpd, 1), "recall": tp / max(tp + fnd, 1),
                       "mask_iou": stats("iou", [{"iou": x, "shape": None} for x in ious]),

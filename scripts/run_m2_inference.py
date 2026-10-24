@@ -1,11 +1,10 @@
 """M2 inference: read ONLY obs_* files, run perception + tracking, write predictions.
 
-Usage:  PYTHONPATH=. python scripts/run_m2_inference.py <dataset_root> <pred_dir>
+Usage:  PYTHONPATH=. python scripts/run_m2_inference.py <dataset_root> <pred_dir> [--cameras overhead,mobile]
 """
 from __future__ import annotations
 
 import json
-import sys
 import time
 from pathlib import Path
 
@@ -14,10 +13,12 @@ from perception.pipeline import mask_to_rle, perceive
 from tracking.tracker import MultiObjectTracker
 
 
-def run(dataset: Path, out: Path) -> dict:
+def run(dataset: Path, out: Path, cameras: list[str] | None = None) -> dict:
     manifest = json.loads((dataset / "manifest.json").read_text())
-    cams = manifest["config"]["cameras"]
+    cams = cameras or manifest["config"]["cameras"]
     out.mkdir(parents=True, exist_ok=True)
+    (out / "meta.json").write_text(json.dumps({"cameras": cams, "dataset": manifest["name"],
+                                               "dataset_config_hash": manifest["config_hash"]}))
     timing = {"perceive_s": [], "track_s": []}
     for ep in manifest["episodes"]:
         tracker = MultiObjectTracker()
@@ -48,7 +49,17 @@ def run(dataset: Path, out: Path) -> dict:
 
 
 if __name__ == "__main__":
-    tm = run(Path(sys.argv[1]), Path(sys.argv[2]))
+    import argparse
+
     import numpy as np
+    ap = argparse.ArgumentParser()
+    ap.add_argument("dataset")
+    ap.add_argument("preds")
+    ap.add_argument("--cameras", default=None)
+    a = ap.parse_args()
+    tm = run(Path(a.dataset), Path(a.preds), a.cameras.split(",") if a.cameras else None)
+    (Path(a.preds) / "timing.json").write_text(json.dumps({k: {"median_ms": 1e3 * float(np.median(v)),
+                                                               "p95_ms": 1e3 * float(np.percentile(v, 95)),
+                                                               "n": len(v)} for k, v in tm.items()}))
     print({k: f"median {1e3 * np.median(v):.1f} ms, p95 {1e3 * np.percentile(v, 95):.1f} ms, n={len(v)}"
            for k, v in tm.items()})

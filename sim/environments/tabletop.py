@@ -67,8 +67,23 @@ def _calib_board_xml() -> str:
             f'{discs}</body>')
 
 
+TRAY_XY = (0.22, 0.20)      # place-target tray centre (world), within the Panda's reach
+TRAY_HALF = 0.06             # inner half-width (m)
+
+
+def _tray_xml() -> str:
+    """Low-walled tray: placed objects (spheres!) stay put instead of rolling off the table."""
+    x, y, h, w, t = TRAY_XY[0], TRAY_XY[1], TRAY_HALF, 0.015, 0.004
+    z = TABLE_TOP_Z
+    walls = "".join(
+        f'<geom type="box" pos="{px:.4f} {py:.4f} {z + w:.4f}" size="{sx:.4f} {sy:.4f} {w:.4f}" rgba="0.5 0.5 0.55 1"/>'
+        for px, py, sx, sy in [(x + h + t, y, t, h + 2 * t), (x - h - t, y, t, h + 2 * t),
+                               (x, y + h + t, h, t), (x, y - h - t, h, t)])
+    return f'<body name="tray"><geom type="box" pos="{x} {y} {z + 0.002}" size="{h} {h} 0.002" rgba="0.5 0.5 0.55 1"/>{walls}</body>'
+
+
 def build_xml(objects: tuple[ObjectSpec, ...] = DEFAULT_OBJECTS, width: int = 320, height: int = 240,
-              calib_board: bool = False) -> str:
+              calib_board: bool = False, tray: bool = False) -> str:
     hx, hy = TABLE_HALF
     return f"""
 <mujoco model="belief3d_tabletop">
@@ -91,6 +106,7 @@ def build_xml(objects: tuple[ObjectSpec, ...] = DEFAULT_OBJECTS, width: int = 32
     </body>
     {''.join(_object_xml(o) for o in objects)}
     {_calib_board_xml() if calib_board else ""}
+    {_tray_xml() if tray else ""}
   </worldbody>
 </mujoco>
 """
@@ -102,8 +118,8 @@ R_GL_CV = np.diag([1.0, -1.0, -1.0])
 
 
 def build_model(objects: tuple[ObjectSpec, ...], width: int, height: int, with_robot: bool,
-                calib_board: bool = False) -> mujoco.MjModel:
-    spec = mujoco.MjSpec.from_string(build_xml(objects, width, height, calib_board))
+                calib_board: bool = False, tray: bool = False) -> mujoco.MjModel:
+    spec = mujoco.MjSpec.from_string(build_xml(objects, width, height, calib_board, tray))
     if with_robot:
         if not PANDA_XML.exists():
             raise FileNotFoundError(f"{PANDA_XML} missing — run scripts/fetch_assets.py")
@@ -122,11 +138,12 @@ class TabletopScene:
         height: int = 240,
         with_robot: bool = False,
         calib_board: bool = False,
+        tray: bool = False,
     ):
         self.objects = objects
         self.width, self.height = width, height
         self.with_robot = with_robot
-        self.model = build_model(objects, width, height, with_robot, calib_board)
+        self.model = build_model(objects, width, height, with_robot, calib_board, tray)
         self.data = mujoco.MjData(self.model)
         self.body_ids = [mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, o.name) for o in objects]
         self._qpos_adr = [

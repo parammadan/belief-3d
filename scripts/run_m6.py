@@ -27,14 +27,15 @@ from perception.geometry import se3
 from policies.predict import SignatureRenderer, modes_of
 from policies.viewpoint import POLICIES, PolicyContext, TaskRiskPolicy, plan_grasp
 from scripts.run_m5 import Episode, step_tracker
+from sim.environments.tabletop import TRAY_HALF, TRAY_XY
 from sim.robot.panda import HOME_Q, OBSERVE_Q
 from tracking.belief.particle import BeliefConfig
 from tracking.belief_tracker import BeliefTracker
 from tracking.tracker import TrackerConfig
 
 SPEC = {o.name: o for o in CATALOG}
-PLACE_XY = np.array([0.22, 0.20])          # place target on the table (world), inside reach
-PLACE_RADIUS = 0.06
+PLACE_XY = np.array(TRAY_XY)                # tray centre (world)
+PLACE_RADIUS = TRAY_HALF + 0.01
 
 
 def judge(ep: Episode, target_color: str, z0: dict[int, float]) -> dict:
@@ -52,7 +53,7 @@ def judge(ep: Episode, target_color: str, z0: dict[int, float]) -> dict:
 
 def run(seed: int, policy_name: str, budget: int, scenario: str, noise: str, cameras: tuple[str, ...],
         max_attempts: int) -> dict:
-    ep = Episode(seed, scenario, noise, cameras)
+    ep = Episode(seed, scenario, noise, cameras, tray=True)
     robot = ep.scene.robot
 
     def step():
@@ -111,11 +112,18 @@ def run(seed: int, policy_name: str, budget: int, scenario: str, noise: str, cam
             for _ in range(200):
                 step()
     if held:
-        T_place = se3.make_T(np.diag([1.0, -1.0, -1.0]), [PLACE_XY[0], PLACE_XY[1], 0.40 + 0.08])
+        T_place = se3.make_T(np.diag([1.0, -1.0, -1.0]), [PLACE_XY[0], PLACE_XY[1], 0.40 + 0.07])
         r = robot.ik_any([T_place])[1]
         if r.success:
             robot.move_to(r.q, 1.5, step)
         release(robot, step)
+        # Retreat straight up before parking: sweeping from the place pose to OBSERVE_Q knocked the
+        # just-placed object out of the region (measured on val seed 1,500,700).
+        T_up = T_place.copy()
+        T_up[2, 3] += 0.15
+        up = robot.ik(T_up, q0=r.q)
+        if up.success:
+            robot.move_to(up.q, 1.0, step)
         robot.move_to(OBSERVE_Q, 1.5, step)
         for _ in range(300):
             step()

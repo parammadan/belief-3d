@@ -48,12 +48,12 @@ class Episode:
     """Simulator side of one episode (owns ground truth; never handed to the policy)."""
 
     def __init__(self, seed: int, scenario: str, noise: str, cameras: tuple[str, ...] = ("overhead", "mobile"),
-                 elevations: tuple[float, ...] = (35.0, 60.0)):
+                 elevations: tuple[float, ...] = (35.0, 60.0), tray: bool = False):
         ss = np.random.SeedSequence(seed).spawn(5)
         self.layout_seed = int(ss[0].generate_state(1)[0])
         self.view_rng, self.calib_rng, self.noise_rng, scen_rng = (np.random.default_rng(s) for s in ss[1:])
         self.scenario = Scenario.sample(PRESET_SCENARIOS[scenario], scen_rng, n_frames=6)
-        self.scene = TabletopScene(self.scenario.objects, with_robot=PANDA_XML.exists())
+        self.scene = TabletopScene(self.scenario.objects, with_robot=PANDA_XML.exists(), tray=tray)
         self.scenario.apply_appearance(self.scene)
         self.scene.reset(seed=self.layout_seed)
         self.views = ViewpointSet(self.scene, elevations_deg=elevations)

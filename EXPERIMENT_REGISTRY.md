@@ -463,3 +463,33 @@ By the pre-committed rule (highest success; tie → lower travel → larger λ),
   superiority is expected); D2 vs fixed; travel; distinct views; centre error.
 - **Stated expectation.** D2 > D and D2 > C1/C2, driven by view diversity, and D2 ≈ random.
   Any outcome is reported as-is.
+
+## EXP-M5-002 RESULT (pre-registered above; 150 paired test episodes; physical scoring)
+
+| Primary (Holm across 3) | Δ success | Bootstrap 95 % CI | Discordant (D2 / base) | McNemar p | Holm p |
+|---|---|---|---|---|---|
+| **D2 vs D (task_risk)** | **+0.147** | [0.060, 0.240] | 36 / 14 | 0.0026 | **0.0078** |
+| **D2 vs C1 (entropy)** | **+0.133** | [0.053, 0.220] | 32 / 12 | 0.0037 | **0.0078** |
+| **D2 vs C2 (covariance)** | **+0.133** | [0.053, 0.220] | 32 / 12 | 0.0037 | **0.0078** |
+
+**All three primary hypotheses CONFIRMED.**
+
+| Policy | Success | Median centre error | Distinct views | Travel | Decide time |
+|---|---|---|---|---|---|
+| fixed | 0.520 | 18.29 mm | 1.00 | 0.00 s | 5 ms |
+| task_risk (D) | 0.520 | 18.29 mm | 1.00 | 0.00 s | 56 ms |
+| entropy (C1) | 0.533 | 17.12 mm | 1.06 | 0.57 s | 37 ms |
+| covariance (C2) | 0.533 | 17.12 mm | 1.06 | 0.57 s | 38 ms |
+| random | 0.633 | 14.38 mm | 1.95 | 3.51 s | 7 ms |
+| **task_risk_cal (D2)** | **0.667** | **12.66 mm** | 1.62 | 3.90 s | 185 ms |
+
+- **Secondary.** D2 vs random +0.033, 95 % CI [−0.053, 0.120], p = 0.54 (not significant,
+  as stated in advance). D2 vs fixed +0.147, p = 0.0026.
+- **Mechanism.** D2 has the lowest grasp-centre error of all policies (paired vs random:
+  −2.13 mm mean). It achieves this with *fewer* distinct views than random (1.62 vs 1.95):
+  it picks views whose calibration biases cancel rather than simply moving more.
+- **Reading of the two M5 studies.** A task-aware objective beats information objectives
+  *only when its loss model includes the error source that actually limits the task*. Here
+  that is view-dependent extrinsic calibration bias, not pose ambiguity. The same objective
+  without it (D, EXP-M5-001) never moved and tied with fixed. Simulation only; one regime
+  (mugs / harsh / mobile camera / low views); a single calibration-error model.

@@ -22,14 +22,15 @@ cluster, sha256-recorded) and baseline comparison tables exist.
 - **Not run:** FoundationPose (level 3, optional).
 - **Checkpoint:** not yet published publicly (needs Param's OK for a GitHub release).
 
-**M5: Active perception. First registered study done; H3 NOT supported.** EXP-M5-001
-(150 paired test episodes, physical grasp scoring):
-- task-risk 0.487 = fixed (it never moved) vs entropy / covariance 0.507 (Holm p = 1.0);
-- random 0.627, significantly better (p = 0.0019).
-
-Mechanism: per-camera calibration error is view-dependent, so view diversity averages it
-out, and no objective models this. Next: a calibration-aware task-risk variant (D2),
-developed on val, then a new registered test (EXP-M5-002).
+**M5: Active perception. Exit criteria met** (evidence for and against the hypothesis, no
+leakage; two registered studies).
+- **EXP-M5-001: H3 NOT supported.** Task-risk without a calibration model never moved
+  (0.487 = fixed); random was best (0.627).
+- **EXP-M5-002: confirmed (Holm p = 0.0078 on all three).** Calibration-aware task-risk (D2,
+  frozen on val) reached 0.667, vs 0.520 for D and 0.533 for entropy / covariance; vs random
+  +0.033 (n.s.).
+- **Mechanism:** D2 picks views whose calibration biases cancel, giving the lowest centre
+  error (median 12.7 mm).
 
 **M6: Closed-loop manipulation, started.** Grasp executor done (physics-tested, with
 proprioceptive verification); `scripts/run_m6.py` (recovery + place) is written but not yet
@@ -42,7 +43,7 @@ claim stands (see literature_review).
 - [x] **M0**: environment audit, geometry core, minimal scene, validated camera geometry
 - [x] **M1**: robot, viewpoints, noise, scenarios, dataset writer/validator
 - [x] **M2**: classical segmentation, SDF pose fit, completeness, CV-KF + Hungarian tracking, calibration checks, independent evaluator
-- [x] **M3** neural pose · [x] **M4** belief tracking · [~] M5 active perception (EXP-M5-001: H3 null; D2 next)
+- [x] **M3** neural pose · [x] **M4** belief tracking · [x] **M5** active perception (EXP-M5-001 null; EXP-M5-002 confirmed)
 - [ ] M6 closed-loop manipulation · [ ] M7 systems optimisation · [ ] M8 final study
 
 ## M2 checklist

@@ -1,0 +1,109 @@
+{
+ "n_paired_episodes": 150,
+ "n_ambiguous_t0": 28,
+ "success": {
+  "covariance": 0.5333333333333333,
+  "entropy": 0.5333333333333333,
+  "fixed": 0.52,
+  "random": 0.6333333333333333,
+  "task_risk": 0.52,
+  "task_risk_cal_l005": 0.6666666666666666
+ },
+ "treatment": "task_risk_cal_l005",
+ "primary": {
+  "task_risk_cal_l005_vs_task_risk": {
+   "n": 150,
+   "rate_task_risk_cal_l005": 0.6666666666666666,
+   "rate_task_risk": 0.52,
+   "diff": 0.14666666666666667,
+   "ci95": [
+    0.06,
+    0.24
+   ],
+   "a_only": 36,
+   "base_only": 14,
+   "mcnemar_p": 0.0026021714567221466,
+   "p_holm": 0.00780651437016644
+  },
+  "task_risk_cal_l005_vs_entropy": {
+   "n": 150,
+   "rate_task_risk_cal_l005": 0.6666666666666666,
+   "rate_entropy": 0.5333333333333333,
+   "diff": 0.13333333333333333,
+   "ci95": [
+    0.05333333333333334,
+    0.22
+   ],
+   "a_only": 32,
+   "base_only": 12,
+   "mcnemar_p": 0.003657766827927844,
+   "p_holm": 0.00780651437016644
+  },
+  "task_risk_cal_l005_vs_covariance": {
+   "n": 150,
+   "rate_task_risk_cal_l005": 0.6666666666666666,
+   "rate_covariance": 0.5333333333333333,
+   "diff": 0.13333333333333333,
+   "ci95": [
+    0.05333333333333334,
+    0.22
+   ],
+   "a_only": 32,
+   "base_only": 12,
+   "mcnemar_p": 0.003657766827927844,
+   "p_holm": 0.00780651437016644
+  }
+ },
+ "secondary": {
+  "task_risk_cal_l005_vs_random": {
+   "n": 150,
+   "rate_task_risk_cal_l005": 0.6666666666666666,
+   "rate_random": 0.6333333333333333,
+   "diff": 0.03333333333333333,
+   "ci95": [
+    -0.05333333333333334,
+    0.12
+   ],
+   "a_only": 24,
+   "base_only": 19,
+   "mcnemar_p": 0.542384011856484
+  },
+  "task_risk_cal_l005_vs_fixed": {
+   "n": 150,
+   "rate_task_risk_cal_l005": 0.6666666666666666,
+   "rate_fixed": 0.52,
+   "diff": 0.14666666666666667,
+   "ci95": [
+    0.06,
+    0.24
+   ],
+   "a_only": 36,
+   "base_only": 14,
+   "mcnemar_p": 0.0026021714567221466
+  }
+ },
+ "success_ambiguous_subset": {
+  "covariance": 0.7142857142857143,
+  "entropy": 0.7142857142857143,
+  "fixed": 0.6428571428571429,
+  "random": 0.75,
+  "task_risk": 0.6428571428571429,
+  "task_risk_cal_l005": 0.8214285714285714
+ },
+ "mean_travel_s": {
+  "covariance": 0.5655089793473341,
+  "entropy": 0.5655089793473341,
+  "fixed": 0.0,
+  "random": 3.5136470011571874,
+  "task_risk": 0.0,
+  "task_risk_cal_l005": 3.896163078101738
+ },
+ "mean_decide_ms": {
+  "covariance": 38.044138787081465,
+  "entropy": 36.87065433555593,
+  "fixed": 5.128193307900801,
+  "random": 6.67185770929791,
+  "task_risk": 55.678669516928494,
+  "task_risk_cal_l005": 185.19194409794486
+ }
+}

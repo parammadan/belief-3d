@@ -1,0 +1,7 @@
+covariance         success 0.533 centre_err median 17.12 mean 19.60 mm  distinct views 1.06  travel 0.57s  decide 38 ms
+entropy            success 0.533 centre_err median 17.12 mean 19.60 mm  distinct views 1.06  travel 0.57s  decide 37 ms
+fixed              success 0.520 centre_err median 18.29 mean 20.65 mm  distinct views 1.00  travel 0.00s  decide 5 ms
+random             success 0.633 centre_err median 14.38 mean 16.70 mm  distinct views 1.95  travel 3.51s  decide 7 ms
+task_risk          success 0.520 centre_err median 18.29 mean 20.65 mm  distinct views 1.00  travel 0.00s  decide 56 ms
+task_risk_cal_l005 success 0.667 centre_err median 12.66 mean 14.57 mm  distinct views 1.62  travel 3.90s  decide 185 ms
+paired centre error D2 - random: mean -2.13 mm, median -1.22 mm

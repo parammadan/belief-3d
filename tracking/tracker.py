@@ -35,9 +35,12 @@ class Detection:
     T_WO: np.ndarray
     rms: float
     n_points: int
+    completeness: float = 1.0     # observed / model-expected pixels (perception.pose.completeness)
 
     def position_cov(self, floor: float = 0.002) -> np.ndarray:
-        s = max(floor, 2.0 * self.rms)
+        """Fit residuals understate error on partial views (a 34 %-visible box fit
+        with rms 0.9 mm was 36 mm off), so std is inflated by 1/completeness."""
+        s = max(floor, 2.0 * self.rms) / max(self.completeness, 0.1)
         return np.eye(3) * s * s
 
 
@@ -77,6 +80,7 @@ class TrackerConfig:
     confirm_hits: int = 2
     max_misses: int = 20          # frames a confirmed track may coast
     tentative_max_misses: int = 1
+    min_spawn_completeness: float = 0.6   # partial views update tracks but never start them
     q: float = 0.05               # CV process noise (m^2/s^3)
     v_sigma0: float = 0.3         # initial velocity std (m/s)
 
@@ -108,11 +112,12 @@ class MultiObjectTracker:
                 tr, d = self.tracks[i], dets[j]
                 tr.kf.update(d.T_WO[:3, 3], d.position_cov())
                 tr.R_WO = d.T_WO[:3, :3]
-                if tr.track_id not in updated:
-                    tr.hits += 1
+                tr.hits += 1          # each camera is an independent confirmation
                 updated.add(tr.track_id)
             for j in unmatched:
                 d = dets[j]
+                if d.completeness < self.cfg.min_spawn_completeness:
+                    continue
                 tr = Track(self._next_id, d.color_class, d.spec_name,
                            CVKalman.init(d.T_WO[:3, 3], d.position_cov(), t, self.cfg.v_sigma0, self.cfg.q),
                            d.T_WO[:3, :3])

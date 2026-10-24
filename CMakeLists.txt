@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.20)
+project(belief3d_cpp LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+# -O3 only: no -ffast-math, which would break exact equivalence with the NumPy reference.
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
+execute_process(COMMAND ${Python_EXECUTABLE} -c "import pybind11; print(pybind11.get_cmake_dir())"
+                OUTPUT_VARIABLE pybind11_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+find_package(pybind11 CONFIG REQUIRED)
+pybind11_add_module(belief3d_cpp cpp/bindings/module.cpp cpp/src/free_space.cpp)
+target_compile_options(belief3d_cpp PRIVATE -Wall -Wextra)

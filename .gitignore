@@ -17,3 +17,4 @@ MUJOCO_LOG.TXT
 sim/assets/third_party/
 preds/
 logs/
+cpp/build/

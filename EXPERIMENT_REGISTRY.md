@@ -168,3 +168,32 @@ on `dynamic`/`nominal` and `dynamic`/`harsh`.
   n_cameras. A first variant aligned to the overhead camera; it restored MOTA (0.979), rotation
   (2.09°) and coverage (0.92) but doubled translation error (22.4 mm), because both cameras
   inherited one camera's bias. Hence the consensus version, VAL-M4-003.
+
+## VAL-M4-004 (val; final B2 development state, commit `67bf0bf`)
+
+B2 = particle belief + consensus relative calibration + honest covariance + support constraint in
+predict + re-identification. On all four val conditions, B2 equals B1 in MOTA, ID switches and FP.
+- **Rotation (median, all tracked frames):** nominal 0.57° / 0.74° (B1 0.43° / 0.62°);
+  harsh 2.37° / 2.24° (B1 3.44° / 5.03°).
+- **Partially visible objects:** occlusion nominal B1 83.4° vs B2 1.03°; occlusion harsh 39.2° vs
+  2.18° (small n).
+- **Translation:** B2 is worse by 0.4–0.7 mm (Monte Carlo approximation noise).
+- **Coverage:** 95 % coverage is 1.00 for B2 everywhere (over-conservative under nominal noise,
+  where calibration is actually perfect).
+- **Cost:** 2.1–2.7 s per frame.
+
+## EXP-M4-001 — PRE-REGISTERED (written before running; B2 frozen at commit `67bf0bf`)
+
+- **H1 (primary).** On tracked object-frames with visible fraction < 0.5 (max over cameras), B2's
+  rate of symmetry-aware rotation error < 5° is higher than B1's. Pooled over `occlusion`/
+  `nominal` and `occlusion`/`harsh`.
+  - *Unit:* episodes that contain ≥ 1 partial-visibility frame.
+  - *Statistic:* per-episode mean of (B2 − B1); paired bootstrap 95 % CI; exact two-sided sign
+    test.
+- **H2 (non-inferiority).** In every condition, MOTA(B2) ≥ MOTA(B1) − 0.01.
+- **Secondary (descriptive, no claims):** median translation and rotation error over all tracked
+  frames; 50/80/95 % coverage; runtime.
+- **Data:** never-evaluated test seeds, offset 100 onward (2,000,100+). occlusion_nominal and
+  occlusion_harsh: 30 episodes each; dynamic_nominal and dynamic_harsh: 10 episodes each;
+  15 frames per episode; both cameras; identical detections fed to B1 and B2.
+- **Commitment:** report as-is, whatever the direction.

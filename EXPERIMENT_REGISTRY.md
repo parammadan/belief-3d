@@ -197,3 +197,34 @@ predict + re-identification. On all four val conditions, B2 equals B1 in MOTA, I
   occlusion_harsh: 30 episodes each; dynamic_nominal and dynamic_harsh: 10 episodes each;
   15 frames per episode; both cameras; identical detections fed to B1 and B2.
 - **Commitment:** report as-is, whatever the direction.
+
+| ID | Date | Commit | Command | Data | Env | Output | Status |
+|---|---|---|---|---|---|---|---|
+| DATA-M3-001 | 2026-10-24 | `012d6cc` | `sbatch experiments/cluster/gen_shards.sbatch` (+ resubmit of 10 timed-out tasks with 1.5 h limit, same seeds) | train 0–1,999 (20 × 100 eps), val 1,001,000–1,001,199, test 2,003,000–2,003,199; 10 frames, both cameras | Explorer CPU nodes, OSMesa (conda-forge mesalib < 25) | `/scratch/madan.pa/belief3d/shards/*.npz` (+ sha256 json) | done |
+| RUN-M3-smoke | 2026-10-24 | `012d6cc` | `train_pose.sbatch` MAXSTEPS=60 | 13 train / 3 val shards | A100-80GB | `runs/smoke` | done (pipeline OK) |
+| RUN-M3-v100fail | 2026-10-24 | `e1f5589`+ | `train_pose.sbatch` EPOCHS=60 on V100 | full | V100-32GB | cancelled at step ~300 | **failed: bf16 on V100** |
+| RUN-M3-diag1 | 2026-10-24 | see git | `train_pose.sbatch` MAXSTEPS=1500 | full | A100-80GB | `runs/diag1` | done |
+| RUN-M3-pose_v1 | 2026-10-24 | see git | `train_pose.sbatch` EPOCHS=60 → `eval_m3.sbatch` | full | A100 (any GPU allowed) | `runs/pose_v1`, `reports/m3/eval_m3_pose_v1.json` | running |
+
+## DATA-M3-001: neural-pose training data
+
+- **Samples:** 175,599 train / 17,599 val / 17,789 test. Each sample is one visible object
+  instance in one camera frame: 512 segment points (float16) plus the label. Total 218 MB.
+- **Throughput:** about 23 min per 100-episode shard on one CPU core under OSMesa. 10 of 28
+  tasks exceeded the 45 min cap on slower nodes and were rerun with the same seeds, so the
+  data is identical.
+- **Rendering:** EGL is unusable on Explorer CPU nodes (no EGL device). Current conda-forge
+  Mesa (26.x) dropped OSMesa; `mesalib<25` restores it. Its depth test matches the Mac
+  exactly (0.9016 m).
+
+## RUN-M3-v100fail / diag1: training diagnostics
+
+- **V100 failure.** 1,304 samples/s at ~0 % utilisation vs 7,618 on an A100 smoke run,
+  because V100s have no bf16 units. Cancelled. Fix: bf16 where supported, otherwise fp16
+  with a GradScaler.
+- **Idle GPU at startup.** Loading compressed shards took ~5 min of GPU-allocated idle time.
+  Fix: a packed uncompressed cache built once.
+- **Learning.** Inputs were rescaled ×20 (centred coordinates are ~±3 cm). diag1 (1,500
+  steps, 1 min 23 s wall, 22.4k samples/s, A100) reached val best-of-K mean 3.25 mm
+  (median 2.17) and top-1 mean 5.59 mm (median 3.04), with 47 % of top-1 predictions under
+  2 mm. The top-1 vs best-of-K gap shows a weak confidence head.

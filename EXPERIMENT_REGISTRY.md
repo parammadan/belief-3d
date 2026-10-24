@@ -44,3 +44,46 @@ Seed 3, `occlusion` preset, 6 objects. `sphere_blue` is occluded for frames [4, 
 visible fraction: 1, 1, 1, 1, **0, 0, 0, 0**, 1, 1, 1, 1. The mobile camera keeps partial or full
 sight during the interval, because its viewpoint changes randomly per frame. This is the
 situation active viewpoint selection (M5) must exploit.
+
+| ID | Date | Commit | Command | Seeds | Env | Output | Status |
+|---|---|---|---|---|---|---|---|
+| EXP-M2-001 | 2026-10-24 | `777bce5` | `bash experiments/scripts/exp_m2_001.sh` then `python experiments/analysis/m2_tables.py` | test 2,000,000–2,000,009 (10 eps × 15 frames) | M1 Mac, cgl, Panda on | `reports/m2/m2_test_*.json`, `reports/tables/m2_results.md` | done |
+| EXP-M2-002 | 2026-10-24 | `777bce5` | `python -m benchmarks.calibration.calib_sweep --seeds 10` | test 2,000,500–2,000,509 | same | `reports/m2/calib_sweep.json` | done |
+
+## EXP-M2-001: classical perception + B1 tracking on held-out test seeds
+
+- **Protocol.** All segmentation, pose and tracker thresholds were tuned only on **val** seeds
+  (1,500,000+). The test seeds were run once, after the code was frozen at the commit above.
+- **Methods.** (a) overhead camera only (fixed view, B1); (b) overhead plus mobile camera
+  following the random viewpoint schedule.
+- **Conditions.** static / occlusion / dynamic with nominal noise, plus dynamic with harsh noise.
+  Full tables are in `reports/tables/m2_results.md`.
+- **Nominal-noise findings.**
+  - Detection precision ≥ 0.993; recall 0.943–0.973 (most misses are heavily occluded objects).
+  - Median translation error 0.25–0.60 mm; median symmetry-aware rotation error 0.19–0.83°.
+  - Pose success (t < 1 cm and r < 5°) 0.958–0.990.
+  - Tracking MOTA 0.847–0.882 with overhead only versus 0.977–0.997 with two cameras.
+  - With overhead only, all 13 fully hidden objects were recovered under the same track ID,
+    with zero frames of latency (coasting).
+- **Harsh-noise findings.**
+  - Median translation error rises to 16–22 mm and pose success collapses to 0.08–0.13. That
+    is consistent with EXP-M2-002: the harsh preset's ~1° extrinsic error predicts ~12 mm,
+    plus ~8 mm from its translation offset.
+- **Negative result.** Under harsh calibration error, adding the mobile camera *lowers* MOTA
+  (0.767 → 0.736, 95 % CI [0.363, 0.991]) with 26 ID switches and 133 FP. Each camera's
+  calibration error is independent, so the same object is reported 2–3 cm apart. That exceeds
+  the gate, because measurement covariance currently models fit residual and completeness but
+  **not calibration uncertainty**, so duplicate tracks spawn. Not fixed here, to avoid tuning
+  on test; it is carried to M4 as a val-developed fix.
+
+## EXP-M2-002: extrinsic calibration drift sweep
+
+- **Object localisation degrades linearly:** about 11.6 mm per degree of drift (overhead),
+  and two-view triangulation about 18 mm per degree.
+- **Reprojection RMS under the reported calibration:** 0.11 px clean, 0.72 px at 0.25°,
+  2.8 px at 1°. It is a sensitive drift detector.
+- **Single-image planar PnP re-estimation** has a constant error floor of 0.85° (overhead) /
+  0.17° (oblique) independent of drift. The estimator is verified exact on synthetic data and
+  covariance-consistent (mean NIS ≈ 6 over 200 trials), so the floor is ~0.1 px systematic
+  centroid error amplified by poor conditioning at 320×240. Re-calibrating from one image
+  therefore only helps once drift exceeds ≈ 1° (overhead) or ≈ 0.2° (oblique).

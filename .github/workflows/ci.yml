@@ -15,5 +15,6 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y libosmesa6-dev
       - run: pip install -e '.[dev]' pyopengl
       - run: python scripts/fetch_assets.py
+      - run: cmake -S . -B cpp/build -DPython_EXECUTABLE=$(which python) && cmake --build cpp/build -j2
       - run: ruff check .
       - run: pytest -q

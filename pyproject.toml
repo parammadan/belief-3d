@@ -12,7 +12,7 @@ license = { text = "MIT" }
 dependencies = ["mujoco==3.17.0", "numpy==2.5.4", "scipy==1.18.1", "pyyaml"]
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+dev = ["pytest", "ruff", "pybind11>=2.12", "cmake>=3.20"]
 
 [tool.setuptools.packages.find]
 include = ["sim*", "data*", "perception*", "tracking*", "policies*", "manipulation*", "models*"]

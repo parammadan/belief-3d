@@ -37,6 +37,11 @@ class Detection:
     n_points: int
     completeness: float = 1.0     # observed / model-expected pixels (perception.pose.completeness)
     range_m: float = 1.0          # camera-to-object distance (m), for the calibration term
+    # For the belief tracker (B2); B1 ignores these.
+    hypotheses: tuple = ()        # near-tie pose fits T_WO, best first
+    points_W: np.ndarray | None = None
+    plane: tuple | None = None    # (n, d) support plane
+    noise_sigma: float = 0.0
 
     def position_cov(self, floor: float = 0.002) -> np.ndarray:
         """Fit residuals understate error on partial views (a 34 %-visible box fit

@@ -109,7 +109,7 @@ def initialisations(spec: ObjectSpec, P: np.ndarray, plane_n: np.ndarray, plane_
     return inits
 
 
-def fit_primitive(
+def fit_hypotheses(
     spec: ObjectSpec,
     P_W: np.ndarray,
     plane_n: np.ndarray,
@@ -118,16 +118,19 @@ def fit_primitive(
     max_points: int = 400,
     seed: int = 0,
     support_sigma: float | None = 0.005,
-) -> PoseEstimate:
+) -> list[PoseEstimate]:
+    """All local optima from the initialisations, best (lowest robust cost) first.
+
+    Near-ties are exactly the ambiguities a belief should keep. fit_primitive
+    returns only the first of these."""
     if len(P_W) < 10:
         raise ValueError("too few points to fit")
     rng = np.random.default_rng(seed)
     P = P_W[rng.choice(len(P_W), max_points, replace=False)] if len(P_W) > max_points else P_W
     f_scale = max(0.002, 2.0 * noise_sigma)
-    best: PoseEstimate | None = None
+    out: list[PoseEstimate] = []
     for T0 in initialisations(spec, P, plane_n, plane_d):
         R0, t0 = T0[:3, :3], T0[:3, 3]
-
         w_sup = np.sqrt(len(P)) * f_scale / support_sigma if support_sigma else 0.0
 
         def resid(x, R0=R0, t0=t0, w_sup=w_sup):
@@ -141,8 +144,18 @@ def fit_primitive(
                             max_nfev=200)
         T = se3.make_T(R0 @ se3.so3_exp(sol.x[:3]), t0 + sol.x[3:])
         r = resid(sol.x)[: len(P)]
-        est = PoseEstimate(spec.name, T, float(np.sqrt(np.mean(r**2))), len(P_W), float(sol.cost))
-        if best is None or est.cost < best.cost:
-            best = est
-    assert best is not None
-    return best
+        out.append(PoseEstimate(spec.name, T, float(np.sqrt(np.mean(r**2))), len(P_W), float(sol.cost)))
+    return sorted(out, key=lambda e: e.cost)
+
+
+def fit_primitive(
+    spec: ObjectSpec,
+    P_W: np.ndarray,
+    plane_n: np.ndarray,
+    plane_d: float,
+    noise_sigma: float = 0.0,
+    max_points: int = 400,
+    seed: int = 0,
+    support_sigma: float | None = 0.005,
+) -> PoseEstimate:
+    return fit_hypotheses(spec, P_W, plane_n, plane_d, noise_sigma, max_points, seed, support_sigma)[0]

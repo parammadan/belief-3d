@@ -15,7 +15,7 @@ from data.schemas.objects import CATALOG, ObjectSpec
 from data.schemas.observation import Observation
 from perception.geometry import se3
 from perception.pose.completeness import completeness
-from perception.pose.primitive_fit import fit_primitive
+from perception.pose.primitive_fit import fit_hypotheses
 from perception.segmentation.classical import Segment, SegmenterConfig, estimate_depth_noise, segment
 from tracking.tracker import Detection
 
@@ -25,6 +25,8 @@ class PerceptionConfig:
     seg: SegmenterConfig = field(default_factory=SegmenterConfig)
     min_fit_points: int = 20
     max_rms: float = 0.01          # m; reject fits that explain the points poorly
+    hyp_rms_slack: float = 0.0015  # m; other local optima within this RMS of the best are kept
+    max_hypotheses: int = 4
 
 
 @dataclass(frozen=True)
@@ -49,15 +51,18 @@ def perceive(obs: Observation, cfg: PerceptionConfig = PerceptionConfig(),  # no
         specs = by_class.get(s.color_class)
         if not specs or len(s.points_W) < cfg.min_fit_points:
             continue
-        fits = [fit_primitive(sp, s.points_W, plane.n, plane.d, sigma, seed=seed) for sp in specs]
-        best = min(fits, key=lambda f: f.cost)
+        fits = sorted((f for sp in specs for f in fit_hypotheses(sp, s.points_W, plane.n, plane.d, sigma, seed=seed)),
+                      key=lambda f: f.cost)
+        best = fits[0]
+        hyps = tuple(f.T_WO for f in fits if f.spec_name == best.spec_name
+                     and f.rms <= best.rms + cfg.hyp_rms_slack)[: cfg.max_hypotheses]
         if best.rms > cfg.max_rms:
             continue
         spec = next(sp for sp in specs if sp.name == best.spec_name)
         comp = completeness(s.n_pixels, spec, best.T_WO, obs.T_WC, obs.intrinsics)
         rng_m = float(np.linalg.norm(best.T_WO[:3, 3] - obs.T_WC[:3, 3]))
         dets.append(Detection(obs.camera_name, obs.timestamp, s.color_class, best.spec_name, best.T_WO,
-                              best.rms, best.n_points, comp, rng_m))
+                              best.rms, best.n_points, comp, rng_m, hyps, s.points_W, (plane.n, plane.d), sigma))
         kept.append(s)
     return FrameResult(dets, kept, sigma)
 

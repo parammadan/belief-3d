@@ -510,3 +510,24 @@ By the pre-committed rule (highest success; tie → lower travel → larger λ),
 - **Descriptive.** Success rates, mean attempts, retry success rate, verification errors (held
   but not placed; not held but placed).
 - **Commitment.** Report as-is.
+
+## EXP-M6-001 RESULT: COMPROMISED by two harness defects (reported, not used for claims)
+
+1. **D2 arm invalid.** `run_m6.py` built the PolicyContext without the view history and
+   calibration prior, so D2's calibration term was 0 and it degenerated to plain task-risk.
+   Its results were identical to `fixed` in every field.
+2. **Crashes biased the sample.** `modes_of` could return an empty mode set for a spread-out
+   belief (all clusters < 2 % mass), which crashed 12 of 20 retry-arm tasks. Only 87/100
+   episodes paired, plausibly the easier ones.
+- **What the valid fixed arm shows (descriptive only):** success 0.529 with 1 attempt and
+  0.529 with 2 (1 / 1 discordant); retry success 3/40 (7.5 %). Retrying from the same
+  belief without new information repeats the same calibration-biased grasp.
+- **Fixes** (commit `256fa35`): context passes view history and calibration prior; `modes_of`
+  always keeps the heaviest cluster (regression test added). Re-run as EXP-M6-002.
+
+## EXP-M6-002 — PRE-REGISTERED (written before running; code frozen at `256fa35`)
+
+Same task, regime, arms, policies, analysis and commitment as EXP-M6-001. New,
+never-evaluated test seeds, offset 1500–1599. H6: per policy, success with 2 attempts > with 1
+(exact McNemar, Holm across fixed and D2). Descriptive: D2 vs fixed at each attempt budget
+(no correction claimed).

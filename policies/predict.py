@@ -39,6 +39,10 @@ def modes_of(belief, min_mass: float = 0.02) -> ModeSet:
     labels = belief.cluster_labels()
     mass = np.bincount(labels, weights=belief.w)
     keep = np.nonzero(mass >= min_mass)[0]
+    if len(keep) == 0:
+        # A spread-out belief can leave every cluster below min_mass. Keep the heaviest one
+        # rather than return no modes: an empty ModeSet crashed 12/20 EXP-M6-001 retry tasks.
+        keep = np.array([int(np.argmax(mass))])
     poses, members = [], []
     for k in keep:
         idx = np.nonzero(labels == k)[0]

@@ -111,15 +111,21 @@ def test_task_risk_observing_beats_grasping_blind():
     assert info["scores"][v] < 0.1
 
 
-def _cal_ctx(views, history, rot=np.radians(1.0), trans=0.005):
-    box, b = _ambiguous_belief()
+ONE_DEG = float(np.radians(1.0))
+
+
+def _cal_ctx(views, history, rot=ONE_DEG, trans=0.005):
+    box, _ = _ambiguous_belief()
     one = PoseBelief(box, [se3.make_T(np.eye(3), [0.0, 0.0, 0.425])], 0.0,
                      BeliefConfig(n_particles=64, init_r_sigma=0.001, init_t_sigma=0.0002), seed=1)
     return PolicyContext(box, one, [], PLANE, views, history[-1], lambda i, j: 0.0 if i == j else 1.0,
                          SignatureRenderer(K), view_history=history, calib_rot_sigma=rot, calib_trans_sigma=trans)
 
 
-def _ring(n=6, el=np.radians(30), r=0.75):
+THIRTY_DEG = float(np.radians(30))
+
+
+def _ring(n=6, el=THIRTY_DEG, r=0.75):
     c = np.array([0.0, 0.0, 0.40])
     return [se3.look_at(c + r * np.array([np.cos(el) * np.cos(a), np.cos(el) * np.sin(a), np.sin(el)]), c)
             for a in np.linspace(-np.pi, np.pi, n, endpoint=False)]
@@ -146,3 +152,11 @@ def test_calibrated_policy_prefers_diversifying_view():
     pol = CalibratedTaskRiskPolicy(lam=0.0, seed=0)
     v, info = pol.choose(ctx, np.random.default_rng(0))
     assert v != 0 and info["scores"][v] < info["scores"][0]
+
+
+def test_modes_of_never_empty_for_spread_belief():
+    box = SPEC["box_red"]
+    b = PoseBelief(box, [se3.make_T(np.eye(3), [0.0, 0.0, 0.425])], 0.0,
+                   BeliefConfig(n_particles=200, init_r_sigma=3.0, init_t_sigma=0.2), seed=3)
+    m = modes_of(b, min_mass=0.5)            # every cluster below threshold
+    assert len(m.weights) == 1 and abs(m.weights.sum() - 1) < 1e-12

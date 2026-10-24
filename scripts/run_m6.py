@@ -62,6 +62,7 @@ def run(seed: int, policy_name: str, budget: int, scenario: str, noise: str, cam
     tracker = BeliefTracker(TrackerConfig(calib_rot_sigma=np.radians(1.0), calib_trans_sigma=0.005),
                             BeliefConfig(), seed=seed)
     t0 = time.perf_counter()
+    history: list[int] = [ep.view]          # views observed (start view + warm-up)
     frames = ep.observe()
     tracks, K = step_tracker(tracker, frames, 0)
     frames = ep.observe()
@@ -71,9 +72,12 @@ def run(seed: int, policy_name: str, budget: int, scenario: str, noise: str, cam
     risk = TaskRiskPolicy()
 
     def ctx_for(target):
+        # view_history + calibration prior: without them D2 degenerated to plain task-risk
+        # (EXP-M6-001 D2 arm identical to fixed in every field; invalid).
         occl = [(SPEC[o.spec_name], o.T_WO) for o in tracker.tracks if o is not target]
         return PolicyContext(SPEC[target.spec_name], target.belief, occl, plane,
-                             [v.T_WC for v in ep.views.views], ep.view, ep.views.travel_time, renderer)
+                             [v.T_WC for v in ep.views.views], ep.view, ep.views.travel_time, renderer,
+                             view_history=list(history), calib_rot_sigma=np.radians(1.0), calib_trans_sigma=0.005)
 
     if not tracks:
         ep.close()
@@ -93,6 +97,7 @@ def run(seed: int, policy_name: str, budget: int, scenario: str, noise: str, cam
                 break
             v, _ = policy.choose(ctx_for(tgt), prng)
             travel += ep.move(v)
+            history.append(v)
             frames = ep.observe()
             step_tracker(tracker, frames, k)
             k += 1

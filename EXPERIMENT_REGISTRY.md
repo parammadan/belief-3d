@@ -611,3 +611,24 @@ were re-copied (tar over ssh), and the analysis below uses the full sample.
   D2 ≈ random (n.s.): most of the benefit comes from view *diversity* plus estimating the bias it
   reveals, not from fine view choice.
 - Simulation only; one regime; one calibration-error model.
+
+## PERF-M7-002: pose-proposer inference benchmark (model-only; V100-SXM2-32GB; 200 iters, 20 warm-up, CUDA-synchronised)
+
+| Backend | Batch | Median | p95 | p99 | Throughput | Peak memory | Top-1 surface error (2,048 val) |
+|---|---|---|---|---|---|---|---|
+| PyTorch fp32 | 1 | 1.16 ms | 1.17 ms | 1.18 ms | 861 /s | 29 MB | 4.920 mm (reference) |
+| PyTorch fp32 | 32 | 1.22 ms | 1.24 ms | 1.25 ms | 26.1k /s | 78 MB | |
+| PyTorch fp32 | 256 | 6.76 ms | 6.79 ms | 6.80 ms | 37.8k /s | 432 MB | |
+| PyTorch fp16 autocast | 1 | 1.20 ms | 1.33 ms | 1.35 ms | 834 /s | 30 MB | 4.915 mm |
+| PyTorch fp16 autocast | 32 | 1.20 ms | 1.21 ms | 1.21 ms | 26.7k /s | 71 MB | |
+| PyTorch fp16 autocast | 256 | 4.94 ms | 4.95 ms | 5.03 ms | 51.8k /s | 366 MB | |
+
+- **fp16:** 1.37× faster at batch 256, no gain (slightly slower) at batch 1, where launch
+  overhead dominates. Accuracy is preserved (4.915 vs 4.920 mm). argmax agreement 0.9995:
+  0.05 % of samples flip the top-ranked hypothesis (max |ΔR| 0.31 comes from those flips).
+- **ONNX export:** ok (opset 17; `torch.cross` replaced by an explicit, identical cross product).
+- **ONNX Runtime GPU: not yet measured.** Run 11351691 *silently fell back to the CPU provider*.
+  Its numbers are CPU timings under GPU labels and are **discarded**; the benchmark now refuses
+  to report a fallback. Root cause (run 11352235): onnxruntime-gpu 1.31 targets CUDA 13
+  (`libcublas.so.13`), while torch cu124 bundles CUDA 12. Being re-done with a version-consistent
+  stack (onnxruntime-gpu 1.22, CUDA 12 build; TensorRT 10.x).

@@ -416,3 +416,19 @@ it is the M3 baseline comparison, run once. Report: `reports/m3/eval_m3_pose_v1.
   better than staying put. The principled next step (a new method variant, to be developed on
   val and re-registered) is to model view-dependent calibration bias in the predicted task
   loss, so the objective values view diversity.
+
+## VAL-M5-004: D2 (calibration-aware task-risk) on val (40 paired episodes, EXP-M5-001 regime)
+
+| Policy | Success | Median centre error | Travel | Distinct views |
+|---|---|---|---|---|
+| fixed / task_risk (D) | 0.450 | 19.8 mm | 0.00 s | 1.00 |
+| entropy | 0.450 | 19.5 mm | 0.32 s | 1.00 |
+| **task_risk_cal (D2, λ = 0.02)** | **0.550** | **15.3 mm** | 3.61 s | 1.60 |
+| random | 0.600 | 15.3 mm | 3.97 s | 1.98 |
+
+D2 matches random's centre-error reduction by deliberate choice but visits fewer distinct
+views, apparently because the travel penalty outweighs the calibration benefit of a third view.
+
+**VAL-M5-005 selection rule (fixed BEFORE the λ-sweep results were seen):** choose
+λ ∈ {0, 0.005, 0.02} with the highest val physical success. Break ties by lower mean travel,
+then by larger λ. The chosen λ is frozen for EXP-M5-002.

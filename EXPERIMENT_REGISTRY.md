@@ -493,3 +493,20 @@ By the pre-committed rule (highest success; tie → lower travel → larger λ),
   that is view-dependent extrinsic calibration bias, not pose ambiguity. The same objective
   without it (D, EXP-M5-001) never moved and tied with fixed. Simulation only; one regime
   (mugs / harsh / mobile camera / low views); a single calibration-error model.
+
+## EXP-M6-001 — PRE-REGISTERED (written before running; code frozen at `f587448`)
+
+- **Task.** Closed-loop pick-and-place (`scripts/run_m6.py`). The target is chosen from the
+  belief; the policy picks views (budget 2); the grasp comes from the target belief's MAP mode
+  and is executed on the simulated Panda. A proprioceptive check (finger width) decides
+  held / not held. On failure: park the arm, re-observe with the policy, re-plan, retry. If held,
+  the object is placed in a walled tray, then the arm retreats vertically and parks.
+- **Success (evaluator, simulator state).** A target-class object ends inside the tray.
+- **Regime.** mugs / harsh / mobile camera / default candidate views (35°, 60°) / budget 2.
+- **Arms.** max_attempts = 1 vs max_attempts = 2, on the *same* 100 never-evaluated test seeds
+  (offset 1400–1499). Policies: fixed and task_risk_cal_l005 (D2).
+- **Primary (H6).** Per policy, success with 2 attempts > with 1. Exact McNemar on paired
+  outcomes; Holm across the two policies. `experiments/analysis/m6_analysis.py`.
+- **Descriptive.** Success rates, mean attempts, retry success rate, verification errors (held
+  but not placed; not held but placed).
+- **Commitment.** Report as-is.

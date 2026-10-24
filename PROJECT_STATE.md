@@ -53,6 +53,14 @@ claim stands (see literature_review).
 - [x] **M3** neural pose · [x] **M4** belief tracking · [x] **M5** active perception (EXP-M5-001 null; EXP-M5-002 confirmed)
 - [x] **M6** closed-loop manipulation · [ ] M7 systems optimisation · [ ] M8 final study
 
+## M7 checklist
+
+- [x] PERF-M7-001: belief update 4.3× faster (matmul, cached symmetry groups)
+- [x] PERF-M7-002/003: proposer inference on V100 (torch fp32/fp16, ORT CUDA 0.48 ms at batch 1)
+- [ ] PERF-M7-004: TensorRT on A100 (V100 is unsupported by TRT 10.16). Job queued
+- [x] PERF-M7-005: C++ free-space kernel (pybind11 + CMake, CI-built), 4.8–6.9× kernel and 3.4× per update, identical particles
+- [ ] Perception pose-fit speed (~190 ms per frame), the remaining CPU bottleneck
+
 ## M2 checklist
 
 - [x] Catalog moved to `data/schemas/objects.py` (allowed CAD prior; inference may not import `sim`)

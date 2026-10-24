@@ -1,0 +1,58 @@
+{
+ "args": {
+  "train": "../shards/train_*.npz",
+  "val": "../shards/val_*.npz",
+  "out": "../runs/pose_v1",
+  "epochs": 60,
+  "batch": 512,
+  "lr": 0.001,
+  "k": 4,
+  "seed": 0,
+  "max_steps": null,
+  "log_every": 50
+ },
+ "device": "cuda",
+ "torch": "2.6.0+cu124",
+ "amp_dtype": "torch.bfloat16",
+ "gpu": "NVIDIA A100-SXM4-80GB",
+ "n_train": 175599,
+ "n_val": 17599,
+ "train_files": {
+  "../shards/train_0000.npz": "7449675a5705a9ec",
+  "../shards/train_0001.npz": "d4602174dc3b24d0",
+  "../shards/train_0002.npz": "8ee4734b6ccc73d9",
+  "../shards/train_0003.npz": "3d36594c2f46a00c",
+  "../shards/train_0004.npz": "f386f5a0770aa268",
+  "../shards/train_0005.npz": "1b6e098473fcc853",
+  "../shards/train_0006.npz": "b4db4e7a9c6eb164",
+  "../shards/train_0007.npz": "14bf1fade65274e4",
+  "../shards/train_0008.npz": "7783c022b6541045",
+  "../shards/train_0009.npz": "6e39b607ad468957",
+  "../shards/train_0010.npz": "6bb3a518e6ccf38e",
+  "../shards/train_0011.npz": "62e455b3f26711cc",
+  "../shards/train_0012.npz": "f0ac1026f62a74e7",
+  "../shards/train_0013.npz": "1e2deb12417d2b12",
+  "../shards/train_0014.npz": "01841f4cd9d5c01a",
+  "../shards/train_0015.npz": "7a4d347f305806ba",
+  "../shards/train_0016.npz": "5a740d5ba7cc14e1",
+  "../shards/train_0017.npz": "ad1bacabde5e815e",
+  "../shards/train_0018.npz": "bd49dcfcf4986e4c",
+  "../shards/train_0019.npz": "7c69841f336cd4ae"
+ },
+ "val_files": {
+  "../shards/val_0000.npz": "77ba360248afe8dd",
+  "../shards/val_0001.npz": "7cac529aa82b31a6",
+  "../shards/val_0002.npz": "4c9b0a7b9795bb9d",
+  "../shards/val_0003.npz": "38ed357d959d64a9"
+ },
+ "git_commit": "98d7209e5a4b2e35f125f9d92ae4b0e2c37d4c00",
+ "final_val": {
+  "best_of_k_mm_mean": 2.640156541019678,
+  "best_of_k_mm_median": 1.5552407130599022,
+  "top1_mm_mean": 4.781077150255442,
+  "top1_mm_median": 2.4107524659484625,
+  "top1_under_2mm": 0.4923575222492218
+ },
+ "best_val_top1_mm_mean": 4.776656627655029,
+ "wall_s": 328.11254996899515
+}

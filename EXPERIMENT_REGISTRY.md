@@ -251,3 +251,34 @@ single views are ambiguous — with statistically significant effect and no trac
 not dominate: under nominal conditions its Monte Carlo approximation costs ~0.4 mm and a small
 amount of overall success, and it is ~5,000× slower. Both are M7 targets (refinement of the
 reported estimate; vectorised/compiled likelihood).
+
+## RUN-M3-pose_v1 + EXP-M3-001 (done)
+
+**Training.** 60 epochs, 20,520 steps, batch 512, A100-80GB, 6 min 41 s wall at 32k samples/s,
+bf16. Checkpoint `/scratch/madan.pa/belief3d/runs/pose_v1/best.pt` (sha256 prefix and size:
+00f937ddfc470885 2.3M ). Run metadata (data hashes, git commit) is in `reports/m3/pose_v1_meta.json`.
+Final val: best-of-K mean 2.64 mm (median 1.56); top-1 mean 4.78 mm (median 2.41); 49.2 % of
+top-1 predictions under 2 mm (surface distance).
+
+**EXP-M3-001: pose comparison on 4,000 held-out TEST samples** (`eval_m3.sbatch`; same GT-mask
+points for every method, which isolates pose estimation from segmentation). Not pre-registered;
+it is the M3 baseline comparison, run once. Report: `reports/m3/eval_m3_pose_v1.json`.
+
+| Method | Success all (95 % CI) | Success, vis < 0.5 (n = 68) | ADD-S p90, vis < 0.5 | Median time |
+|---|---|---|---|---|
+| classical SDF fit (level 1) | 0.997 [0.995, 0.998] | 0.853 [0.765, 0.926] | 4.67 mm | 189 ms |
+| neural top-1 (level 2, no refinement) | 0.987 [0.983, 0.990] | 0.735 [0.632, 0.838] | 7.16 mm | 4.5 ms |
+| **neural proposals + SDF refinement** | **0.999 [0.998, 1.000]** | **0.985 [0.956, 1.000]** | **1.28 mm** | 98 ms (+4.5) |
+| neural best-of-K (ORACLE: selects with GT) | 0.991 [0.987, 0.994] | 0.838 [0.750, 0.912] | 3.34 mm | — |
+
+- **The network alone is worse than geometry.** Top-1 translation is 0.52 vs 0.31 mm median,
+  and on partial views 0.735 vs 0.853.
+- **As initialisations for the same geometric refinement, it is the best level.** On partial
+  views 0.985 vs 0.853, with non-overlapping CIs, at half the classical fit's time (4 good
+  initialisations instead of ~6 generic ones).
+- **Refinement beats the oracle.** Refined-and-cost-selected beats the network's own best
+  hypothesis, so the geometry corrects the network's residual error.
+- **Caveats.** Few partial-visibility test samples (102 below 0.8, 68 below 0.5); GT masks (no
+  segmentation error); one training seed; simulation only.
+- **Level 3 (FoundationPose) not run.** Its NVIDIA licence is research-only and allowed for this
+  project, but its GPU stack is heavy; deferred as an optional comparison.

@@ -87,3 +87,14 @@ situation active viewpoint selection (M5) must exploit.
   covariance-consistent (mean NIS ≈ 6 over 200 trials), so the floor is ~0.1 px systematic
   centroid error amplified by poor conditioning at 320×240. Re-calibrating from one image
   therefore only helps once drift exceeds ≈ 1° (overhead) or ≈ 0.2° (oblique).
+
+## EXP-M4P-002 — PRE-REGISTERED (written before running)
+
+- **Hypothesis:** with σ_rot = 1°, σ_trans = 5 mm (frozen; chosen on val by VAL-M4P-001),
+  two-camera MOTA on `dynamic`/`harsh` is higher than with σ = 0.
+- **Data:** 40 new test seeds, offsets 10–49 (2,000,010–2,000,049), never evaluated before;
+  15 frames per episode.
+- **Analysis:** per-episode paired difference (σ = 1 minus σ = 0). Report the mean, a paired
+  bootstrap 95 % CI and an exact two-sided sign test. The overhead-only arm is reported as a
+  control (expected ≈ 0 effect).
+- **Commitment:** the result is reported as-is, whatever its direction.

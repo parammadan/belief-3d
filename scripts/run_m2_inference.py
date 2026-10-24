@@ -34,7 +34,7 @@ def run(dataset: Path, out: Path, cameras: list[str] | None = None) -> dict:
                 timing["perceive_s"].append(time.perf_counter() - t0)
                 for d, s in zip(res.detections, res.segments):
                     seg_out.append({"camera": c, "color_class": d.color_class, "spec_name": d.spec_name,
-                                    "T_WO": d.T_WO.tolist(), "rms": d.rms, "n_points": d.n_points, "completeness": d.completeness,
+                                    "T_WO": d.T_WO.tolist(), "rms": d.rms, "n_points": d.n_points, "completeness": d.completeness, "range_m": d.range_m,
                                     "mask_rle": mask_to_rle(s.mask)})
                 dets += res.detections
             t0 = time.perf_counter()

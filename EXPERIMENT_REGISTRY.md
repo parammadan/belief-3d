@@ -282,3 +282,16 @@ it is the M3 baseline comparison, run once. Report: `reports/m3/eval_m3_pose_v1.
   segmentation error); one training seed; simulation only.
 - **Level 3 (FoundationPose) not run.** Its NVIDIA licence is research-only and allowed for this
   project, but its GPU stack is heavy; deferred as an optional comparison.
+
+## PERF-M7-001: belief-update profiling (early M7; benchmark = 5 updates, 256 particles, 2 views)
+
+- **Before:** 726 ms per update. `free_space_log_lik` took 76 %, almost all in `np.einsum`
+  (no BLAS path for batched 3×3 × point-set rotations), and symmetry groups were rebuilt on
+  every call (0.57 s per 5 updates).
+- **Change:** per-particle camera←object rotations composed first, then batched `np.matmul`;
+  symmetry groups `lru_cache`d per model (read-only arrays).
+- **After:** 170 ms per update (**4.3×**). Equivalence is tested:
+  `test_fast_likelihood_matches_reference_einsum` (rtol 1e-9). The remaining cost is
+  element-wise free-space arithmetic on N × M = 256 × 902 arrays.
+- **Measured on the M1 Mac while a concurrent M5 val job was running**; treat the absolute
+  numbers as indicative.

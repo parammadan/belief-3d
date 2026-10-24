@@ -187,11 +187,14 @@ class PoseBelief:
     def free_space_log_lik(self, view: DepthView, s: float) -> np.ndarray:
         c = self.cfg
         T_CW = se3.inv_T(view.T_WC)
-        S_W = np.einsum("nij,mj->nmi", self.R, self._S_O) + self.x[:, None]      # (N, M, 3)
-        N_W = np.einsum("nij,mj->nmi", self.R, self._N_O)
-        S_C = S_W @ T_CW[:3, :3].T + T_CW[:3, 3]
-        N_C = N_W @ T_CW[:3, :3].T
-        facing = np.einsum("nmi,nmi->nm", N_C, S_C) < 0.0
+        # Compose camera<-object per particle, then one batched BLAS matmul per array.
+        # (einsum here was 76 % of update time; profiled 2026-10-24.)
+        R_C = T_CW[:3, :3] @ self.R                                      # (N, 3, 3)
+        t_C = self.x @ T_CW[:3, :3].T + T_CW[:3, 3]                     # (N, 3)
+        S_C = np.matmul(R_C, self._S_O.T).transpose(0, 2, 1) + t_C[:, None]   # (N, M, 3)
+        N_C = np.matmul(R_C, self._N_O.T).transpose(0, 2, 1)
+        nd = (N_C * S_C).sum(-1)
+        facing = nd < 0.0
         z = S_C[..., 2]
         front = z > 1e-6
         u = view.K.fx * S_C[..., 0] / np.where(front, z, 1.0) + view.K.cx
@@ -201,7 +204,7 @@ class PoseBelief:
         z_obs = np.zeros_like(z)
         z_obs[inside] = view.depth[vi[inside], ui[inside]]
         viol = np.where(inside & (z_obs > 0), z_obs - z - c.fs_margin, 0.0)
-        cos = np.abs(np.einsum("nmi,nmi->nm", N_C, S_C)) / np.maximum(np.linalg.norm(S_C, axis=2), 1e-9)
+        cos = np.abs(nd) / np.maximum(np.linalg.norm(S_C, axis=2), 1e-9)
         pix = self._area_per_sample * cos * (view.K.fx / np.where(front, z, 1.0)) * (view.K.fy / np.where(front, z, 1.0))
         return -c.fs_weight * (pix * np.minimum(np.maximum(viol, 0.0) / s, 3.0)).sum(1) / c.temper
 
@@ -214,7 +217,7 @@ class PoseBelief:
         scale = n_obs / len(P_W)                                      # back to pixel units
         s = max(c.lik_scale_floor, 2.0 * noise_sigma)
         Q = P_W[None] - self.x[:, None]                              # (N, M, 3)
-        P_O = np.einsum("nmi,nij->nmj", Q, self.R)                    # R^T (p - t)
+        P_O = np.matmul(Q, self.R)                                     # rows: R^T (p - t)
         d = sdf(self.spec, P_O.reshape(-1, 3)).reshape(len(self.w), -1) / s
         rho = 2.0 * (np.sqrt(1.0 + d * d) - 1.0)                      # soft-L1
         ll = -scale * rho.sum(1) / c.temper

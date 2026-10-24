@@ -10,6 +10,7 @@ inference and scoring stay independent. A contract test checks that they agree.
 """
 from __future__ import annotations
 
+import functools
 import itertools
 
 import numpy as np
@@ -31,15 +32,27 @@ def _cube_rotations() -> list[np.ndarray]:
 
 
 def symmetry_group(spec: ObjectSpec, n_cyl: int = 12) -> np.ndarray:
-    """(G, 3, 3) array of rotations S with model(R S) == model(R)."""
-    if spec.shape == "box":
-        e = np.asarray(spec.size, float)
-        return np.array([M for M in _cube_rotations() if np.allclose(np.abs(M) @ e, e, atol=1e-9)])
-    if spec.shape == "cylinder":
+    """(G, 3, 3) array of rotations S with model(R S) == model(R). Cached per model:
+    rebuilding it on every call cost 0.57 s per 5 belief updates (profiled)."""
+    return _symmetry_group(spec.shape, tuple(spec.size), n_cyl)
+
+
+@functools.lru_cache(maxsize=64)
+def _symmetry_group(shape: str, size: tuple, n_cyl: int) -> np.ndarray:
+    if shape == "box":
+        e = np.asarray(size, float)
+        out = np.array([M for M in _cube_rotations() if np.allclose(np.abs(M) @ e, e, atol=1e-9)])
+        out.setflags(write=False)
+        return out
+    if shape == "cylinder":
         spins = [se3.so3_exp([0.0, 0.0, 2 * np.pi * k / n_cyl]) for k in range(n_cyl)]
         flip = se3.so3_exp([np.pi, 0.0, 0.0])
-        return np.array(spins + [S @ flip for S in spins])
-    return np.eye(3)[None]
+        out = np.array(spins + [S @ flip for S in spins])
+        out.setflags(write=False)
+        return out
+    out = np.eye(3)[None]
+    out.setflags(write=False)
+    return out
 
 
 def sym_distance(spec: ObjectSpec, R1: np.ndarray, R2: np.ndarray) -> float:

@@ -223,3 +223,32 @@ def test_predict_keeps_particles_out_of_the_table():
         b.predict(0.1 * (k + 1))
     assert lowest_point_heights(spec, b.R, b.x, *PLANE).min() > -1e-9
     assert (b.v @ PLANE[0]).min() > -0.1            # into-plane velocity removed at contact
+
+
+def test_fast_likelihood_matches_reference_einsum():
+    """The matmul rewrite must equal the original einsum formulation exactly (numerically)."""
+    from perception.geometry import se3 as _se3
+    spec, T, T_y = _two_face_hypotheses()
+    table = grid(-0.15, 0.15, -0.15, 0.15, 0.40, 0.0008)
+    top = grid(-0.03, 0.03, -0.02, 0.02, 0.45, 0.0005)
+    view = DepthView(zbuffer(np.vstack([table, top])), K, T_WC_TOP)
+    b = PoseBelief(spec, [T, T_y], 0.0, BeliefConfig(), seed=5)
+    T_CW = _se3.inv_T(view.T_WC)
+    S_W = np.einsum("nij,mj->nmi", b.R, b._S_O) + b.x[:, None]
+    N_W = np.einsum("nij,mj->nmi", b.R, b._N_O)
+    S_C = S_W @ T_CW[:3, :3].T + T_CW[:3, 3]
+    N_C = N_W @ T_CW[:3, :3].T
+    facing = np.einsum("nmi,nmi->nm", N_C, S_C) < 0.0
+    z = S_C[..., 2]
+    front = z > 1e-6
+    u = view.K.fx * S_C[..., 0] / np.where(front, z, 1.0) + view.K.cx
+    v = view.K.fy * S_C[..., 1] / np.where(front, z, 1.0) + view.K.cy
+    ui, vi = np.round(u).astype(int), np.round(v).astype(int)
+    inside = front & facing & (ui >= 0) & (ui < view.K.width) & (vi >= 0) & (vi < view.K.height)
+    z_obs = np.zeros_like(z)
+    z_obs[inside] = view.depth[vi[inside], ui[inside]]
+    viol = np.where(inside & (z_obs > 0), z_obs - z - b.cfg.fs_margin, 0.0)
+    cos = np.abs(np.einsum("nmi,nmi->nm", N_C, S_C)) / np.maximum(np.linalg.norm(S_C, axis=2), 1e-9)
+    pix = b._area_per_sample * cos * (view.K.fx / np.where(front, z, 1.0)) * (view.K.fy / np.where(front, z, 1.0))
+    ref = -b.cfg.fs_weight * (pix * np.minimum(np.maximum(viol, 0.0) / 0.002, 3.0)).sum(1) / b.cfg.temper
+    assert np.allclose(b.free_space_log_lik(view, 0.002), ref, rtol=1e-9, atol=1e-9)

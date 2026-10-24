@@ -549,3 +549,37 @@ never-evaluated test seeds, offset 1500–1599. H6: per policy, success with 2 a
 - **M6 exit criterion met.** The robot completes randomised pick-and-place episodes from
   perception-derived targets, with success 0.50 (fixed) / 0.64 (D2) under `harsh` calibration
   error. The limiting error is calibration, which is the motivation for online self-calibration.
+
+## VAL-M5-006: online extrinsic self-calibration (val, 40 paired episodes, EXP-M5 regime)
+
+`perception/calibration/self_calib.py` solves a linear Gaussian MAP for the camera's
+extrinsic error from repeated observations of static tracked objects across views; the grasp
+centre is then corrected by the estimated mean bias over the target's views.
+
+| Policy | Without self-cal | With self-cal | Median centre error | Median correction |
+|---|---|---|---|---|
+| fixed | 0.525 | 0.550 | 17.9 → 17.9 mm | 0.0 mm |
+| random | 0.700 | 0.775 | 13.4 → 9.4 mm | 10.8 mm |
+| D2 (task_risk_cal_l005) | 0.675 | 0.775 | 13.0 → 9.6 mm | 8.5 mm |
+
+- **Fixed:** one view gives nothing to estimate from, so the prior holds the correction at 0
+  (fails safe).
+- **Diverse views:** about 30 % lower centre error.
+- **Identifiability (unit-tested):** only the *view-varying* part of the bias is identifiable;
+  the part equivalent to a common world-frame motion is a gauge freedom and needs an external
+  reference.
+
+## EXP-M5-003 — PRE-REGISTERED (written before running; code frozen at `2036068`)
+
+- **Regime.** Identical to EXP-M5-001/002.
+- **Data.** 150 never-evaluated test episodes, offset 1600–1749. Each run twice (without and
+  with `--selfcal`) for policies fixed, random and D2.
+- **Primary (H7).** D2+selfcal > D2 on physical grasp success. Exact McNemar on paired
+  outcomes; single primary test, no correction.
+- **Secondary (descriptive).** random+selfcal vs random; fixed+selfcal vs fixed (control,
+  expected ≈ 0); D2+selfcal vs random+selfcal; centre-error change; median correction size.
+- **Analysis.**
+  `python experiments/analysis/m5_analysis.py "reports/m5/exp_m5_003_sc0+reports/m5/exp_m5_003_sc1"
+  --treat task_risk_cal_l005+selfcal --primary task_risk_cal_l005
+  --secondary random+selfcal,random,fixed+selfcal,fixed`
+- **Commitment.** Report as-is.

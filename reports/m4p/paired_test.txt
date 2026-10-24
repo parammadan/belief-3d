@@ -1,0 +1,8 @@
+static_nominal overhead {"n_episodes": 10, "mean_diff": 0.0, "ci95": [0.0, 0.0], "episodes_better": 0, "episodes_worse": 0, "sign_test_p": 1.0}
+static_nominal overhead+mobile {"n_episodes": 10, "mean_diff": 0.0, "ci95": [0.0, 0.0], "episodes_better": 0, "episodes_worse": 0, "sign_test_p": 1.0}
+occlusion_nominal overhead {"n_episodes": 10, "mean_diff": 0.0, "ci95": [0.0, 0.0], "episodes_better": 0, "episodes_worse": 0, "sign_test_p": 1.0}
+occlusion_nominal overhead+mobile {"n_episodes": 10, "mean_diff": 0.0, "ci95": [0.0, 0.0], "episodes_better": 0, "episodes_worse": 0, "sign_test_p": 1.0}
+dynamic_nominal overhead {"n_episodes": 10, "mean_diff": 0.01333333333333333, "ci95": [0.0, 0.039999999999999994], "episodes_better": 1, "episodes_worse": 0, "sign_test_p": 1.0}
+dynamic_nominal overhead+mobile {"n_episodes": 10, "mean_diff": 0.014666666666666672, "ci95": [0.0, 0.04400000000000002], "episodes_better": 1, "episodes_worse": 0, "sign_test_p": 1.0}
+dynamic_harsh overhead {"n_episodes": 10, "mean_diff": 0.0, "ci95": [0.0, 0.0], "episodes_better": 0, "episodes_worse": 0, "sign_test_p": 1.0}
+dynamic_harsh overhead+mobile {"n_episodes": 10, "mean_diff": 0.25366666666666665, "ci95": [0.0, 0.619], "episodes_better": 3, "episodes_worse": 0, "sign_test_p": 0.25}

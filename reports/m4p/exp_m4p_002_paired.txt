@@ -1,0 +1,2 @@
+overhead {"n_episodes": 40, "mean_diff": -0.002083333333333334, "ci95": [-0.006250000000000003, 0.0], "episodes_better": 0, "episodes_worse": 1, "sign_test_p": 1.0}
+overhead+mobile {"n_episodes": 40, "mean_diff": 0.15577777777777777, "ci95": [0.07894444444444444, 0.24205972222222213], "episodes_better": 14, "episodes_worse": 0, "sign_test_p": 0.0001220703125}

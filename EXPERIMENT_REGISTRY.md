@@ -432,3 +432,34 @@ views, apparently because the travel penalty outweighs the calibration benefit o
 **VAL-M5-005 selection rule (fixed BEFORE the λ-sweep results were seen):** choose
 λ ∈ {0, 0.005, 0.02} with the highest val physical success. Break ties by lower mean travel,
 then by larger λ. The chosen λ is frozen for EXP-M5-002.
+
+## VAL-M5-005 result (λ sweep) → D2 frozen
+
+| D2 variant (40 paired val episodes) | Success | Travel | Distinct views |
+|---|---|---|---|
+| λ = 0.02 | 0.550 | 3.61 s | 1.60 |
+| λ = 0.005 | 0.575 | 4.15 s | 1.82 |
+| λ = 0 | 0.575 | 4.15 s | 1.82 |
+
+By the pre-committed rule (highest success; tie → lower travel → larger λ), **D2 = λ = 0.005**
+(`task_risk_cal_l005`). Random scored 0.600 on the same episodes.
+
+## EXP-M5-002 — PRE-REGISTERED (written before running; code frozen at `0436e79`)
+
+- **Question.** Does a task-risk objective that models the dominant, view-dependent error source
+  (calibration bias) improve physical grasp success over the original task-risk (D) and over
+  the information objectives (C1 entropy, C2 covariance)?
+- **Regime.** Identical to EXP-M5-001: mugs / harsh / mobile only / 12°, 25°, 45° views /
+  budget 2 / warm-up 1 / physical single-attempt scoring.
+- **Data.** 150 never-evaluated test episodes, test offset 1200–1349
+  (seeds 2,001,200–2,001,349). Policies: fixed, random, entropy, covariance, task_risk,
+  task_risk_cal_l005, all paired.
+- **Primary.**
+  - D2 vs D, D2 vs C1, D2 vs C2.
+  - Paired success difference with bootstrap 95 % CI, exact McNemar, Holm across the three.
+  - `python experiments/analysis/m5_analysis.py reports/m5/exp_m5_002 --treat task_risk_cal_l005
+    --primary task_risk,entropy,covariance --secondary random,fixed`
+- **Secondary (descriptive, two-sided).** D2 vs random (on val 0.575 vs 0.600, so no
+  superiority is expected); D2 vs fixed; travel; distinct views; centre error.
+- **Stated expectation.** D2 > D and D2 > C1/C2, driven by view diversity, and D2 ≈ random.
+  Any outcome is reported as-is.

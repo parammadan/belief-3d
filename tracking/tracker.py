@@ -36,6 +36,7 @@ class Detection:
     rms: float
     n_points: int
     completeness: float = 1.0     # observed / model-expected pixels (perception.pose.completeness)
+    range_m: float = 1.0          # camera-to-object distance (m), for the calibration term
 
     def position_cov(self, floor: float = 0.002) -> np.ndarray:
         """Fit residuals understate error on partial views (a 34 %-visible box fit
@@ -81,6 +82,11 @@ class TrackerConfig:
     max_misses: int = 20          # frames a confirmed track may coast
     tentative_max_misses: int = 1
     min_spawn_completeness: float = 0.6   # partial views update tracks but never start them
+    # Extrinsic calibration uncertainty (a spec of the calibration procedure, per axis).
+    # A rotation error sigma_rot displaces a point at range r by ~sigma_rot * r; added to R as
+    # an isotropic term. Default 0 reproduces the M2 baseline (EXP-M2-001).
+    calib_rot_sigma: float = 0.0          # rad
+    calib_trans_sigma: float = 0.0        # m
     q: float = 0.05               # CV process noise (m^2/s^3)
     v_sigma0: float = 0.3         # initial velocity std (m/s)
 
@@ -91,6 +97,11 @@ class MultiObjectTracker:
         self.tracks: list[Track] = []
         self._next_id = 0
         self.t = -np.inf
+
+    def meas_cov(self, d: Detection) -> np.ndarray:
+        c = self.cfg
+        calib = (c.calib_rot_sigma * d.range_m) ** 2 + c.calib_trans_sigma**2
+        return d.position_cov() + np.eye(3) * calib
 
     def step(self, t: float, detections: list[Detection]) -> list[Track]:
         if t < self.t - 1e-9:
@@ -106,11 +117,11 @@ class MultiObjectTracker:
             for i, tr in enumerate(self.tracks):
                 for j, d in enumerate(dets):
                     if d.color_class == tr.color_class:
-                        cost[i, j] = tr.kf.mahalanobis2(d.T_WO[:3, 3], d.position_cov())
+                        cost[i, j] = tr.kf.mahalanobis2(d.T_WO[:3, 3], self.meas_cov(d))
             matches, _, unmatched = assign(cost, self.cfg.gate)
             for i, j in matches:
                 tr, d = self.tracks[i], dets[j]
-                tr.kf.update(d.T_WO[:3, 3], d.position_cov())
+                tr.kf.update(d.T_WO[:3, 3], self.meas_cov(d))
                 tr.R_WO = d.T_WO[:3, :3]
                 tr.hits += 1          # each camera is an independent confirmation
                 updated.add(tr.track_id)
@@ -119,7 +130,7 @@ class MultiObjectTracker:
                 if d.completeness < self.cfg.min_spawn_completeness:
                     continue
                 tr = Track(self._next_id, d.color_class, d.spec_name,
-                           CVKalman.init(d.T_WO[:3, 3], d.position_cov(), t, self.cfg.v_sigma0, self.cfg.q),
+                           CVKalman.init(d.T_WO[:3, 3], self.meas_cov(d), t, self.cfg.v_sigma0, self.cfg.q),
                            d.T_WO[:3, :3])
                 self._next_id += 1
                 self.tracks.append(tr)

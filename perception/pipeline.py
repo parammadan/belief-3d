@@ -55,8 +55,9 @@ def perceive(obs: Observation, cfg: PerceptionConfig = PerceptionConfig(),  # no
             continue
         spec = next(sp for sp in specs if sp.name == best.spec_name)
         comp = completeness(s.n_pixels, spec, best.T_WO, obs.T_WC, obs.intrinsics)
+        rng_m = float(np.linalg.norm(best.T_WO[:3, 3] - obs.T_WC[:3, 3]))
         dets.append(Detection(obs.camera_name, obs.timestamp, s.color_class, best.spec_name, best.T_WO,
-                              best.rms, best.n_points, comp))
+                              best.rms, best.n_points, comp, rng_m))
         kept.append(s)
     return FrameResult(dets, kept, sigma)
 

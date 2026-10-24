@@ -1,25 +1,39 @@
 # PROJECT_STATE
 
-_Last updated: 2026-10-23_
+_Last updated: 2026-10-24_
 
 ## Current milestone
 
-**M1: Simulation and sensors. Exit criteria met.** Scene replay is bit-identical (same seed →
-identical sha256 for every dataset file), and projected ground truth aligns with rendered
-observations (validator label-alignment check, 0 errors).
+**M2: Classical perception baseline. Exit criteria met.** An independent evaluator
+(`benchmarks/perception/eval_m2.py`) reads only prediction files and `gt_*` files, and measures
+detection, symmetry-aware pose and CLEAR-MOT tracking errors on held-out **test** seeds
+(EXP-M2-001). Calibration drift effects are quantified in EXP-M2-002.
 
-**Next: M2, classical perception baseline** (colour/geometry segmentation, 3D centroid and
-pose from depth, symmetry-aware error metrics, EKF + Hungarian tracking, an independent
-evaluation script on held-out seeds).
+**Next: M3, neural pose estimation.** This needs torch on the cluster (A100) and Param's OK
+before any GPU job. In parallel, a CPU-side **M4 prerequisite** carried from M2: add
+calibration uncertainty to the tracker's measurement covariance, developed on val seeds (see
+the EXP-M2-001 negative result).
 
 ## Milestones
 
 - [x] **M0**: environment audit, geometry core, minimal scene, validated camera geometry
 - [x] **M1**: robot, viewpoints, noise, scenarios, dataset writer/validator
-- [ ] M2 classical perception · [ ] M3 neural pose · [ ] M4 belief tracking · [ ] M5 active perception
+- [x] **M2**: classical segmentation, SDF pose fit, completeness, CV-KF + Hungarian tracking, calibration checks, independent evaluator
+- [ ] M3 neural pose · [ ] M4 belief tracking · [ ] M5 active perception
 - [ ] M6 closed-loop manipulation · [ ] M7 systems optimisation · [ ] M8 final study
 
-## M1 checklist
+## M2 checklist
+
+- [x] Catalog moved to `data/schemas/objects.py` (allowed CAD prior; inference may not import `sim`)
+- [x] Segmentation: RANSAC table plane, MAD depth-noise estimate, saturated seeds + bounded depth-continuous growth, same-class fragment merge, over-exposure-safe hue vote
+- [x] Pose: analytic primitive SDFs, robust SE(3) least squares, symmetric initialisations, soft support prior (ablatable)
+- [x] Completeness = observed / model-rendered pixels (corr. 0.885 with true visibility on val)
+- [x] Tracking: CV Kalman (Joseph form), Hungarian with χ² gate + class compatibility, tentative/confirmed/coasting lifecycle, completeness-aware noise + spawn gating
+- [x] Metrics: symmetry groups (D2 / D4 / cube), cylinder axis error, exact SDF-based ADD-S, CLEAR-MOT, occlusion recovery, bootstrap CIs
+- [x] Calibration: fiducial board, disc detection, planar PnP + LM + covariance, triangulation, drift sweep
+- [x] Obs-only inference runner and independent evaluator; registered test-seed run
+
+## M1 checklist (done)
 
 - [x] Franka Panda (Menagerie @ `f3b6013`, Apache-2.0) fetched by `scripts/fetch_assets.py`, sha256-locked
 - [x] Panda attached via `MjSpec`; `panda/tcp` site; parked observe pose (arm covers 4 % of overhead view vs 47 % at home)
@@ -39,51 +53,55 @@ evaluation script on held-out seeds).
 | Module | Purpose |
 |---|---|
 | `perception/geometry/{se3,camera}.py` | SE(3)/SO(3) and pinhole CPU reference |
-| `data/schemas/observation.py`, `splits.py` | Observation/GroundTruth split; disjoint seed-range splits |
-| `data/generators/episodes.py`, `data/loaders.py` | Deterministic episodes → on-disk dataset; obs-only / GT-only loaders |
-| `data/validators/validate.py` | §8 dataset validation (`python -m data.validators.validate <root>`) |
-| `sim/environments/{tabletop,scenario}.py` | Scene (+ optional Panda, occluder, kicks); seeded scenario sampling |
-| `sim/robot/panda.py` | Proprioception, FK, IK, grasp IK, joint-space moves, gripper |
-| `sim/cameras/{rgbd,viewpoints,noise}.py` | RGB-D-seg + visibility; viewpoint set + motion model; noise |
+| `perception/segmentation/classical.py` | Plane + seed-and-grow instance segmentation |
+| `perception/pose/{primitive_fit,completeness}.py` | SDF pose fit with support prior; model-based completeness |
+| `perception/calibration/fiducial.py` | Disc detection, planar PnP (+cov), triangulation, drift check |
+| `perception/pipeline.py` | Observation → Detections |
+| `tracking/{filters/kalman,association/hungarian,tracker}.py` | B1 unimodal multi-object tracker |
+| `benchmarks/metrics.py`, `benchmarks/perception/eval_m2.py`, `benchmarks/calibration/calib_sweep.py` | Evaluator side only |
+| `data/schemas/{observation,objects,splits,calib_target}.py` | Schemas and shared priors |
+| `data/generators/episodes.py`, `data/loaders.py`, `data/validators/validate.py` | Dataset I/O |
+| `sim/environments/{tabletop,scenario}.py`, `sim/robot/panda.py`, `sim/cameras/{rgbd,viewpoints,noise}.py` | Simulation |
 
 ## Verified tests (actually run)
 
-`MUJOCO_GL=cgl .venv/bin/python -m pytest -q` → **92 passed** (macOS, 2026-10-23); `ruff check .` clean.
+`MUJOCO_GL=cgl .venv/bin/python -m pytest -q` → **139 passed** (macOS, 2026-10-24); `ruff check .` clean.
 CI (ubuntu-latest, OSMesa, Panda fetched): **92 passed**, ruff clean — https://github.com/parammadan/belief-3d/actions/runs/40041526869
 
 ## Environment
 
-Apple M1, 8 cores, 8 GB RAM, macOS 26.4. **Disk: ~1.8 GB free** (falling). Python 3.12.13 venv. Apple clang 21,
+Apple M1, 8 cores, 8 GB RAM, macOS 26.4. **Disk: ~2.9 GB free**. Python 3.12.13 venv. Apple clang 21,
 no cmake. No CUDA locally; torch/OpenCV/Open3D not installed. Cluster: `ssh explorer`, `gpu:a100` partition
 (no job run yet; GPU use requires Param's explicit OK).
 
-## Experimental results (sanity/infra measurements, not research results)
+## Experimental results (simulation only; see EXPERIMENT_REGISTRY.md for full details)
 
 | ID | Result |
 |---|---|
-| EXP-M0-001 | Back-projection onto true sphere surface: mean 0.15 mm, max 0.29 mm. Table plane 0.001–0.067 mm. |
-| EXP-M1-001 | 15.6–15.7 camera-frames/s (2 cams, 320×240, 4–6 objects + isolation renders, M1 Mac). 268–270 KiB per camera frame. 0 validation errors. |
-| EXP-M1-002 | Occlusion demo seed 3: sphere overhead visibility 1.0 → 0.0 for frames 4–7 → 1.0; mobile still sees 11–100 %. |
+| EXP-M0-001 | Back-projection onto true sphere surface: mean 0.15 mm, max 0.29 mm. |
+| EXP-M1-001 | 15.6–15.7 camera-frames/s; 268–270 KiB per camera frame; 0 validation errors. |
+| EXP-M1-002 | Scheduled occlusion: overhead visibility 1 → 0 → 1; mobile keeps 11–100 %. |
+| EXP-M2-001 | Nominal noise: pose t-err median 0.25–0.60 mm, rot 0.19–0.83°, success 0.96–0.99; MOTA 0.85–0.88 overhead-only vs 0.98–1.00 two-camera; 13/13 hidden objects recovered same-ID. Harsh: t-err 16–22 mm (calibration-dominated); **two-camera MOTA drops (0.767 → 0.736, 26 ID sw.)** because calibration uncertainty is not modelled. |
+| EXP-M2-002 | Object loc. error ≈ 11.6 mm/deg of drift; reprojection detects ≥ 0.25°; single-image PnP floor 0.85° (overhead) / 0.17° (oblique). |
 
 ## Open defects / risks
 
-1. **Storage:** ~270 KiB per camera frame, because sensor noise is incompressible. 100k frames ≈ 26 GB, so large sets must go on the cluster.
-2. CGL depth precision is limited; returns >5 m are clamped to no-return.
-3. One `mujoco.Renderer` per process on CGL (a second one corrupts segmentation).
-4. The camera B motion model is abstract (gantry assumption). Path clearance is a straight-line ray test, not a swept volume.
-5. The occluder is contact-free ("hovering"). It is a visibility device, not a physical obstacle.
-6. The Panda's joint-space `move_to` has no collision checking yet (M6). The physics test routes via HOME_Q.
-7. Primitive objects only; held-out *meshes/textures* per split are not implemented yet (only held-out seeds).
-8. Literature review is still abstract-level (SE(3)-PoseFlow is the main overlap risk).
-9. Spawn region changed in M1 (robot reach). M0 scenes rendered at the current commit differ from `reports/m0/` (EXP-M0-001 is tied to its commit).
+1. **Calibration-inconsistent multi-camera fusion** spawns duplicate tracks under drift (EXP-M2-001 harsh). Fix: add a calibration term to R (val-developed, M4).
+2. Perception runs at ~260–350 ms per camera frame on CPU (pose fit is most of it). Profiling and optimisation belong to M7. Not real-time.
+3. The support prior assumes resting objects; it is wrong for stacked or lifted ones (stacking not in scenarios yet).
+4. Same-class twins that touch merge into one segment, so one detection is produced.
+5. Partial views (< 50 % visible) can give 1–4 cm, ~90° pose errors in single-view fits. Completeness down-weights them, but they are not corrected. This is M4's job.
+6. Expected-pixel model over-counts by ~8 % (rasterisation approximation), so a fully visible object scores completeness ≈ 0.8.
+7. Storage ~270 KiB per camera frame; Mac disk ~2.9 GB free. Large datasets go on the cluster.
+8. CGL depth precision limited; one Renderer per process; camera-B motion abstract; occluder contact-free.
+9. Literature review is still abstract-level (SE(3)-PoseFlow is the main overlap risk).
 
-## Remaining work: M2
+## Remaining work: M3 (+ M4 prerequisite)
 
-1. Classical detector: colour + depth segmentation → instance masks (no GT masks at inference).
-2. 3D centroid / plane removal / outlier rejection; known-geometry pose fit (primitive-specific, then ICP).
-3. Symmetry-aware pose error (box 8-fold proper group, cylinder continuous about z + flip, sphere translation-only).
-4. EKF tracker (constant velocity) + Hungarian association; ID-switch / fragmentation metrics.
-5. `benchmarks/perception/eval_m2.py`: an independent evaluator reading GT files only, on held-out `val` seeds.
+1. Ask Param before any GPU use. Set up torch on Explorer (A100), off-GPU first, with pre-cached weights.
+2. Choose a level-2 neural pose proposal model (license + compatibility check). Consider FoundationPose as level 3 (verify the NVlabs license first).
+3. Generate a train split on the cluster (~26 GB per 100k frames) with a provenance manifest.
+4. CPU side: calibration-aware measurement covariance, then rerun EXP-M2-001 harsh as a *new* experiment ID.
 
 ## Exact commands to continue
 
@@ -95,4 +113,6 @@ export MUJOCO_GL=cgl PYTHONPATH=.
 .venv/bin/python -m pytest -q
 .venv/bin/python scripts/generate_dataset.py --out datasets/smoke --episodes 3 --frames 10
 .venv/bin/python scripts/m1_demo.py --seed 3
+bash experiments/scripts/exp_m2_001.sh && .venv/bin/python experiments/analysis/m2_tables.py   # ~10 min
+.venv/bin/python -m benchmarks.calibration.calib_sweep --seeds 10
 ```

@@ -1,0 +1,8 @@
+policy      centre_err_mm(median, mean)  success_by_moves  proxy_vs_physical_agree  distinct_views_mean
+covariance   17.34  19.34      moved 0.66 (n=29) still 0.47 (n=121)   0.733   1.03
+entropy      17.34  19.34      moved 0.66 (n=29) still 0.47 (n=121)   0.733   1.03
+fixed        19.16  20.80      moved nan (n=0) still 0.49 (n=150)   0.713   1.00
+random       15.94  16.96      moved 0.62 (n=149) still 1.00 (n=1)   0.640   1.93
+task_risk    19.16  20.80      moved nan (n=0) still 0.49 (n=150)   0.713   1.00
+proxy vs physics over all rows: proxy+phys+ 207 proxy+phys- 35 proxy-phys+ 185 proxy-phys- 323
+paired centre error random - task_risk (mm): mean -3.84 median -2.38 n=150, fraction random lower 0.73

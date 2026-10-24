@@ -379,3 +379,40 @@ it is the M3 baseline comparison, run once. Report: `reports/m3/eval_m3_pose_v1.
 - **Stated expectation.** Val ambiguity was mostly grasp-irrelevant, so success differences
   may be small or null. A null H3 will be reported as such, with an analysis of when D and
   C1/C2 choose different views.
+
+## EXP-M5-001 RESULT (pre-registered above; 150 paired test episodes, physical grasp scoring)
+
+| Policy | Physical success | Ambiguous-at-t₀ subset (n = 28) | Mean travel | Mean decide time |
+|---|---|---|---|---|
+| fixed | 0.487 | 0.571 | 0 s | 5 ms |
+| **task_risk (D)** | **0.487** | 0.571 | **0 s** | 56 ms |
+| entropy (C1) | 0.507 | 0.679 | 0.54 s | 33 ms |
+| covariance (C2) | 0.507 | 0.679 | 0.54 s | 34 ms |
+| random | **0.627** | 0.643 | 3.51 s | 6 ms |
+
+- **H3 (primary): NOT SUPPORTED.** D vs C1 and D vs C2 are both −0.020, bootstrap 95 % CI
+  [−0.060, 0.020]; 3 D-only vs 6 baseline-only successes; McNemar p = 0.51, Holm p = 1.0.
+- **Task-risk never moved.** It predicted ~zero grasp risk under the belief in every episode,
+  so it behaved exactly like fixed.
+- **Secondary, unexpected and significant: random beats D** by +0.140 (95 % CI of D − random
+  [−0.22, −0.06]; 11 vs 32 discordant; McNemar p = 0.0019).
+- **Mechanism analysis** (`reports/m5/exp_m5_001/mechanism.txt`).
+  - **Centre error:** random's grasp-centre error is lower than D's (paired mean −3.84 mm,
+    median −2.38 mm), and lower in 73 % of episodes.
+  - **Moving helps:** when the information policies moved (29 episodes) they succeeded 0.66,
+    vs 0.47 when they stayed.
+  - **View diversity:** random visits 1.93 distinct views on average, vs ~1.0 for the others.
+  - **Interpretation:** under `harsh` noise the dominant error is the per-episode extrinsic
+    calibration error. It is fixed in the *camera* frame, so moving the camera re-samples its
+    world-frame effect, and diverse views average it out. None of the objectives model this:
+    the belief is conditional on calibration. The earlier claim (in the M5 design notes) that
+    calibration blindness is "benign for view choice" was **wrong**. It assumed a
+    view-independent offset.
+- **Proxy vs physics.** The 1 cm geometric proxy agrees with physical outcomes in only
+  64–73 % of cases (185 proxy-fail / physics-success, 35 proxy-success / physics-fail over all
+  750 rows), which confirms that switching to physical scoring was necessary.
+- **Conclusion.** In this regime grasp success is limited by systematic calibration error,
+  not by pose ambiguity. A task-aware objective that ignores the dominant error source does no
+  better than staying put. The principled next step (a new method variant, to be developed on
+  val and re-registered) is to model view-dependent calibration bias in the predicted task
+  loss, so the objective values view diversity.

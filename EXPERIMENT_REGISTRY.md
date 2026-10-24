@@ -350,3 +350,32 @@ it is the M3 baseline comparison, run once. Report: `reports/m3/eval_m3_pose_v1.
 
   No improvement, so the change was **reverted**; merges in tight clutter stay a known
   limitation.
+
+## EXP-M5-001 — PRE-REGISTERED (written before running; code frozen at `6326137`)
+
+- **Question (H3, docs/research_question.md).** At equal observation budgets, does choosing
+  views by expected grasp failure (task_risk, D) beat choosing them by information
+  objectives — mode-weight entropy (C1, ActivePose-style) and expected rotational variance
+  (C2, SE(3)-PoseFlow-style) — on grasp success?
+- **Regime** (selected on val by VAL-M5-001..003 and the ambiguity probes, before any test):
+  - `mugs` scenario (4–6 objects, one mug, 9 cm spacing), `harsh` noise;
+  - mobile camera only, candidate views at 12° / 25° / 45° elevation (24 views);
+  - budget 2 camera moves after one shared warm-up frame;
+  - B2 belief tracker with the calibration prior; target = highest grasp-now risk.
+  - Val probe: 9/24 episodes ambiguous at t₀, mostly with low grasp risk.
+- **Primary outcome.** *Physical* grasp success: the final grasp, planned from the target belief's
+  MAP mode, is executed once on the simulated Panda; success = the target-class object is lifted
+  > 8 cm (evaluator reads simulator state). No recovery attempts in this experiment.
+- **Data.** 150 never-evaluated test episodes (test offset 1000–1149, seeds 2,001,000–2,001,149),
+  all 5 policies per episode (paired).
+- **Primary analysis.** `experiments/analysis/m5_analysis.py`: for D vs C1 and D vs C2, the
+  paired per-episode success difference, bootstrap 95 % CI, exact two-sided McNemar test;
+  Holm correction across the two.
+- **Secondary (descriptive):**
+  - D vs fixed and D vs random;
+  - success on the ambiguous-at-t₀ subset;
+  - mean camera travel time and decision time;
+  - agreement between the geometric proxy and physical outcomes.
+- **Stated expectation.** Val ambiguity was mostly grasp-irrelevant, so success differences
+  may be small or null. A null H3 will be reported as such, with an analysis of when D and
+  C1/C2 choose different views.

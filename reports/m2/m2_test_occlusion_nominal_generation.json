@@ -1,0 +1,15 @@
+{
+ "seeds": [
+  2000000,
+  2000009
+ ],
+ "camera_frames": 300,
+ "generate_s": 17.01,
+ "camera_frames_per_s": 17.64,
+ "bytes_total": 82984180,
+ "kib_per_camera_frame": 270.1,
+ "validate_s": 1.73,
+ "validation_errors": 0,
+ "config_hash": "d35a6c4eaf770cab",
+ "git_commit": "777bce57c80b2f084860513ecdca99e9a4a23726-dirty"
+}

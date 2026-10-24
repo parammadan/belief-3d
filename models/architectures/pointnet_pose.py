@@ -25,6 +25,7 @@ class PointNetPose(nn.Module):
     def __init__(self, n_classes: int, k: int = 4, width: int = 256, emb: int = 32):
         super().__init__()
         self.k = k
+        self.input_scale = 20.0     # 1 / (5 cm)
         self.enc = nn.Sequential(
             nn.Conv1d(3, 64, 1), nn.GroupNorm(8, 64), nn.ReLU(),
             nn.Conv1d(64, 128, 1), nn.GroupNorm(8, 128), nn.ReLU(),
@@ -40,7 +41,8 @@ class PointNetPose(nn.Module):
 
     def forward(self, points: torch.Tensor, cls: torch.Tensor):
         """points (B, P, 3) centred; cls (B,). Returns R (B,K,3,3), t (B,K,3), logits (B,K)."""
-        f = self.enc(points.transpose(1, 2)).max(dim=2).values
+        # Centred metric coordinates are ~±3 cm; scale to ~unit range for the encoder.
+        f = self.enc((points * self.input_scale).transpose(1, 2)).max(dim=2).values
         out = self.head(torch.cat([f, self.cls_emb(cls)], dim=1)).view(-1, self.k, 10)
         R = rot6d_to_matrix(out[..., :6])
         t = 0.05 * torch.tanh(out[..., 6:9])        # offsets bounded to +-5 cm from the centroid

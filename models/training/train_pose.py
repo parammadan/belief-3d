@@ -4,7 +4,10 @@
   from disjoint seed splits (separate shard globs)
 * augmentation: random yaw about world z, applied jointly to points and
   label. Gravity-aligned scenes make this an exact symmetry of the task.
-* bf16 autocast on CUDA, AdamW + cosine schedule, deterministic seeding
+* mixed precision chosen per GPU: bf16 where the hardware supports it (A100/H100), otherwise
+  fp16 with a GradScaler. A V100 has no bf16 units: bf16 autocast ran ~6x slower than the A100
+  and at ~0 % utilisation (measured, job 11348076).
+* AdamW + one-cycle schedule, deterministic seeding
 * logs: loss, best-hypothesis surface error (mm), throughput, peak VRAM,
   nvidia-smi utilisation; best-on-val checkpoint plus a metadata JSON with
   data hashes and git commit
@@ -32,13 +35,24 @@ from data.schemas.objects import CATALOG
 from models.architectures.pointnet_pose import PointNetPose
 from models.losses.sdf_loss import SurfaceBank, hypothesis_losses, mhp_loss
 
+AMP_DTYPE = torch.bfloat16
+
 
 def load_shards(pattern: str) -> dict[str, np.ndarray]:
+    """Load + concatenate shards. A packed cache (<dir>/packed_<split>.npz, uncompressed) is
+    built once next to the shards and reused: compressed per-shard loading took ~5 min of
+    GPU-allocated idle time (measured)."""
     files = sorted(glob.glob(pattern))
     if not files:
         raise FileNotFoundError(pattern)
-    parts = [dict(np.load(f)) for f in files]
-    out = {k: np.concatenate([p[k] for p in parts]) for k in parts[0]}
+    tag = hashlib.sha256("".join(f"{f}:{Path(f).stat().st_size}" for f in files).encode()).hexdigest()[:12]
+    cache = Path(files[0]).parent / f"packed_{Path(files[0]).name.split('_')[0]}_{tag}.npz"
+    if cache.exists():
+        out = dict(np.load(cache))
+    else:
+        parts = [dict(np.load(f)) for f in files]
+        out = {k: np.concatenate([p[k] for p in parts]) for k in parts[0]}
+        np.savez(cache, **out)
     out["_files"] = files
     return out
 
@@ -76,7 +90,7 @@ def evaluate(model, bank, data, batch: int) -> dict:
     n = data["cls"].shape[0]
     for i in range(0, n, batch):
         sl = slice(i, i + batch)
-        with torch.autocast(device_type=data["cls"].device.type, dtype=torch.bfloat16,
+        with torch.autocast(device_type=data["cls"].device.type, dtype=AMP_DTYPE,
                             enabled=data["cls"].device.type == "cuda"):
             R, t, logits = model(data["points"][sl], data["cls"][sl])
         _, _, best = mhp_loss(bank, data["cls"][sl], R.float(), t.float(), logits.float(), data["R_gt"][sl],
@@ -108,6 +122,10 @@ def main() -> None:
     np.random.seed(a.seed)
     torch.backends.cudnn.benchmark = False
     dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    global AMP_DTYPE
+    AMP_DTYPE = torch.bfloat16 if (dev.type == "cuda" and torch.cuda.is_bf16_supported(including_emulation=False)) \
+        else torch.float16
+    scaler = torch.amp.GradScaler("cuda", enabled=(dev.type == "cuda" and AMP_DTYPE == torch.float16))
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     tr_np, va_np = load_shards(a.train), load_shards(a.val)
@@ -120,7 +138,7 @@ def main() -> None:
     total = a.max_steps or a.epochs * steps_per_epoch
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=a.lr, total_steps=total, pct_start=0.05)
     gen = torch.Generator(device=dev).manual_seed(a.seed)
-    meta = {"args": vars(a), "device": str(dev), "torch": torch.__version__,
+    meta = {"args": vars(a), "device": str(dev), "torch": torch.__version__, "amp_dtype": str(AMP_DTYPE),
             "gpu": torch.cuda.get_device_name(0) if dev.type == "cuda" else None,
             "n_train": int(n), "n_val": int(va["cls"].shape[0]),
             "train_files": {f: hashlib.sha256(Path(f).read_bytes()).hexdigest()[:16] for f in tr_np["_files"]},
@@ -137,14 +155,16 @@ def main() -> None:
                 break
             idx = perm[i:i + a.batch]
             b = yaw_augment({k: v[idx] for k, v in tr.items()}, gen)
-            with torch.autocast(device_type=dev.type, dtype=torch.bfloat16, enabled=dev.type == "cuda"):
+            with torch.autocast(device_type=dev.type, dtype=AMP_DTYPE, enabled=dev.type == "cuda"):
                 R, t, logits = model(b["points"], b["cls"])
             pose, ce, bestk = mhp_loss(bank, b["cls"], R.float(), t.float(), logits.float(), b["R_gt"], b["t_gt"])
             loss = pose + 0.01 * ce
             opt.zero_grad(set_to_none=True)
-            loss.backward()
+            scaler.scale(loss).backward()
+            scaler.unscale_(opt)
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            opt.step()
+            scaler.step(opt)
+            scaler.update()
             sched.step()
             step += 1
             if step % a.log_every == 0 or step == total:

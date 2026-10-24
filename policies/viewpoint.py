@@ -109,6 +109,9 @@ class PolicyContext:
     renderer: SignatureRenderer
     noise_scale: float = 0.002                       # m, signature mismatch scale
     temper: float = 10.0
+    view_history: list[int] | None = None            # views already observed this episode (for D2)
+    calib_rot_sigma: float = 0.0                     # rad per axis: the calibration prior (spec)
+    calib_trans_sigma: float = 0.0                   # m per axis
 
 
 def _view_posteriors(ctx: PolicyContext, modes: ModeSet, v: int) -> np.ndarray:
@@ -202,4 +205,62 @@ class TaskRiskPolicy(Policy):
         return self.expected_loss(ctx, modes_of(ctx.belief), None)
 
 
-POLICIES = {p.name: p for p in (FixedPolicy, RandomPolicy, EntropyPolicy, CovariancePolicy, TaskRiskPolicy)}
+def physical_tolerances(spec: ObjectSpec, T_WO: np.ndarray) -> tuple[np.ndarray, float, float]:
+    """(closing axis, along-axis tolerance, across-axis tolerance) for a parallel-jaw grasp.
+
+    Along the closing axis the jaws can absorb (max_opening - width)/2 of centring error minus a
+    5 mm margin; across it, about a finger-pad half-width plus compliance (12 mm). Derived from
+    gripper geometry, not fitted. (The 1 cm isotropic proxy disagreed with physical execution in
+    27-36 % of EXP-M5-001 grasps.)"""
+    axis, w, _ = horizontal_extents(spec, T_WO)
+    return axis, max(0.0, (GraspModel().max_opening - w) / 2 - 0.005), 0.012
+
+
+class CalibratedTaskRiskPolicy(TaskRiskPolicy):
+    """D2: task-risk that also models view-dependent extrinsic calibration bias.
+
+    The per-episode calibration error dT is fixed in the camera frame, so a point p seen from a
+    view with pose T_v is reported at T_v dT T_v^-1 p: a bias e_v that rotates with the view.
+    After observing the set S, the fused estimate carries b = mean_{v in S} e_v, which shrinks
+    when the views are diverse. dT is sampled from the calibration prior (the spec, never the
+    truth). Risk = 1 - (1 - L_pose)(1 - L_cal), where L_cal = P(|b| exceeds the grasp's
+    physical tolerance). Motivated by EXP-M5-001, where random's view diversity beat every
+    objective.
+    """
+    name = "task_risk_cal"
+
+    def __init__(self, lam: float = 0.02, n_calib: int = 64, seed: int = 0):
+        super().__init__(lam=lam)
+        rng = np.random.default_rng(seed)
+        self._unit = (rng.normal(size=(n_calib, 3)), rng.normal(size=(n_calib, 3)))
+
+    def _calib_bias(self, ctx, views: list[int], p_W: np.ndarray) -> np.ndarray:
+        """(n_calib, 3) fused world bias at p_W after observing `views`."""
+        wr, wt = self._unit
+        out = np.zeros((len(wr), 3))
+        for k in range(len(wr)):
+            dT = se3.make_T(se3.so3_exp(wr[k] * ctx.calib_rot_sigma), wt[k] * ctx.calib_trans_sigma)
+            e = [(ctx.views[v] @ dT @ se3.inv_T(ctx.views[v]))[:3] @ np.append(p_W, 1.0) - p_W for v in views]
+            out[k] = np.mean(e, axis=0)
+        return out
+
+    def calib_loss(self, ctx, modes, views: list[int]) -> float:
+        if ctx.calib_rot_sigma <= 0 and ctx.calib_trans_sigma <= 0:
+            return 0.0
+        T = modes.poses[int(np.argmax(modes.weights))]
+        axis, tol_along, tol_across = physical_tolerances(ctx.spec, T)
+        b = self._calib_bias(ctx, views, T[:3, 3])
+        across = np.array([-axis[1], axis[0], 0.0])
+        fail = (np.abs(b @ axis) > tol_along) | (np.abs(b @ across) > tol_across) | (np.abs(b[:, 2]) > 0.02)
+        return float(fail.mean())
+
+    def score(self, ctx, modes, v):
+        hist = list(ctx.view_history or [ctx.current])
+        P = _view_posteriors(ctx, modes, v) if len(modes.weights) > 1 else None
+        l_pose = self.expected_loss(ctx, modes, P)
+        l_cal = self.calib_loss(ctx, modes, hist + [v])
+        return 1.0 - (1.0 - l_pose) * (1.0 - l_cal) + self.lam * ctx.travel_time(ctx.current, v)
+
+
+POLICIES = {p.name: p for p in (FixedPolicy, RandomPolicy, EntropyPolicy, CovariancePolicy, TaskRiskPolicy,
+                                CalibratedTaskRiskPolicy)}

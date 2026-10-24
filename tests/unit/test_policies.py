@@ -109,3 +109,40 @@ def test_task_risk_observing_beats_grasping_blind():
     v, info = pol.choose(ctx, np.random.default_rng(0))
     assert pol.grasp_now_loss(ctx) == pytest.approx(0.5, abs=0.15)      # coin flip between yaw modes
     assert info["scores"][v] < 0.1
+
+
+def _cal_ctx(views, history, rot=np.radians(1.0), trans=0.005):
+    box, b = _ambiguous_belief()
+    one = PoseBelief(box, [se3.make_T(np.eye(3), [0.0, 0.0, 0.425])], 0.0,
+                     BeliefConfig(n_particles=64, init_r_sigma=0.001, init_t_sigma=0.0002), seed=1)
+    return PolicyContext(box, one, [], PLANE, views, history[-1], lambda i, j: 0.0 if i == j else 1.0,
+                         SignatureRenderer(K), view_history=history, calib_rot_sigma=rot, calib_trans_sigma=trans)
+
+
+def _ring(n=6, el=np.radians(30), r=0.75):
+    c = np.array([0.0, 0.0, 0.40])
+    return [se3.look_at(c + r * np.array([np.cos(el) * np.cos(a), np.cos(el) * np.sin(a), np.sin(el)]), c)
+            for a in np.linspace(-np.pi, np.pi, n, endpoint=False)]
+
+
+def test_calibration_bias_zero_without_prior_and_shrinks_with_diverse_views():
+    from policies.predict import modes_of
+    from policies.viewpoint import CalibratedTaskRiskPolicy
+    views = _ring()
+    pol = CalibratedTaskRiskPolicy(seed=0)
+    ctx0 = _cal_ctx(views, [0], rot=0.0, trans=0.0)
+    assert pol.calib_loss(ctx0, modes_of(ctx0.belief), [0, 0]) == 0.0
+    ctx = _cal_ctx(views, [0])
+    p = np.array([0.0, 0.0, 0.425])
+    same = np.linalg.norm(pol._calib_bias(ctx, [0, 0, 0], p), axis=1).mean()
+    diverse = np.linalg.norm(pol._calib_bias(ctx, [0, 2, 4], p), axis=1).mean()
+    assert diverse < 0.8 * same                     # opposite-side views partially cancel the bias
+
+
+def test_calibrated_policy_prefers_diversifying_view():
+    from policies.viewpoint import CalibratedTaskRiskPolicy
+    views = _ring()
+    ctx = _cal_ctx(views, [0, 0], rot=np.radians(2.0), trans=0.01)
+    pol = CalibratedTaskRiskPolicy(lam=0.0, seed=0)
+    v, info = pol.choose(ctx, np.random.default_rng(0))
+    assert v != 0 and info["scores"][v] < info["scores"][0]

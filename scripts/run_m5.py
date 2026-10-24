@@ -132,8 +132,10 @@ def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: 
     tracker = BeliefTracker(TrackerConfig(calib_rot_sigma=np.radians(1.0), calib_trans_sigma=0.005),
                             BeliefConfig(), seed=seed)
     t0 = time.perf_counter()
+    history: list[int] = []              # views observed this episode (calibration-aware policy input)
     frames = ep.observe()
     tracks, K = step_tracker(tracker, frames, 0)
+    history.append(ep.view)
     # Warm-up: one more frame from the SAME starting view for every policy, so single-camera
     # runs can confirm tracks (confirmation needs 2 hits). Identical across policies; not part
     # of the movement budget. (Without it, all mobile-only episodes were skipped on val.)
@@ -147,7 +149,8 @@ def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: 
     def ctx_for(target):
         occl = [(SPEC[o.spec_name], o.T_WO) for o in tracker.tracks if o is not target]
         return PolicyContext(SPEC[target.spec_name], target.belief, occl, plane,
-                             [v.T_WC for v in ep.views.views], ep.view, ep.views.travel_time, renderer)
+                             [v.T_WC for v in ep.views.views], ep.view, ep.views.travel_time, renderer,
+                             view_history=list(history), calib_rot_sigma=np.radians(1.0), calib_trans_sigma=0.005)
 
     if not tracks:
         ep.close()
@@ -169,6 +172,7 @@ def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: 
         decide_s.append(time.perf_counter() - td)
         travel += ep.move(v)
         chosen.append(v)
+        history.append(v)
         frames = ep.observe()
         step_tracker(tracker, frames, k)
     tgt = next((tr for tr in tracker.tracks if tr.track_id == tid), None)

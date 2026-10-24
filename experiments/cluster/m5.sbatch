@@ -16,4 +16,5 @@ i=$SLURM_ARRAY_TASK_ID
 mkdir -p ../reports/m5/${TAG}
 ../env/bin/python scripts/run_m5.py --split ${SPLIT} --offset $((BASE + i*EPS)) --episodes ${EPS} \
     --scenario ${SCEN:-occlusion} --noise ${NOISE:-nominal} --budget ${BUDGET:-2} --cameras ${CAMS:-overhead,mobile} \
+    --elevations ${ELEV:-35,60} \
     --policies ${POLICIES:-fixed,random,entropy,covariance,task_risk} --out ../reports/m5/${TAG}/shard_$(printf %03d $i).jsonl

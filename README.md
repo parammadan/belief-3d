@@ -11,41 +11,20 @@ hypothesis. Prior work that overlaps with it is listed in
 
 ## Status
 
-**M0–M2 complete** (simulation only):
-- **M0:** environment audit, geometry core, validated camera geometry.
-- **M1:** Franka Panda with IK and grasp physics, movable-camera viewpoints, seeded noise,
-  occlusion/motion scenarios, versioned datasets with a validator.
-- **M2:** classical perception baseline (plane + seed-and-grow segmentation, SDF-based 6D
-  fitting of known primitives), unimodal Kalman tracking, calibration checks, and an
-  independent evaluator.
+**M0–M5 complete; M6 in progress.** Simulation only. Every result below comes from a
+held-out test split, with the method frozen first; most were pre-registered. See
+[`EXPERIMENT_REGISTRY.md`](EXPERIMENT_REGISTRY.md).
 
-Neural pose (M3), belief tracking (M4) and active policies (M5) are not implemented yet. See
-[`PROJECT_STATE.md`](PROJECT_STATE.md).
-
-**M2 headline (held-out test seeds, nominal noise; [full tables](reports/tables/m2_results.md)):**
-- Median pose error is **0.25–0.60 mm** in translation and **0.19–0.83°** in rotation
-  (symmetry-aware).
-- Tracking MOTA is **0.85–0.88** with the overhead camera only, and **0.98–1.00** when the
-  mobile camera is added.
-
-Two caveats:
-- With ~1° calibration drift, error grows to **16–22 mm**, and adding the second camera then
-  *hurts* tracking. The cause is that calibration uncertainty isn't modelled yet. This is a
-  recorded negative result ([EXP-M2-001](EXPERIMENT_REGISTRY.md)).
-- Localisation degrades by about **11.6 mm per degree** of extrinsic drift
-  ([EXP-M2-002](EXPERIMENT_REGISTRY.md)).
-
-Controlled occlusion (EXP-M1-002). The top row is overhead, where the plate fully hides the
-blue sphere. The bottom row is the mobile camera, which can still see it:
-
-![](reports/m1/occlusion_strip.png)
-
-| Overhead camera | Mobile camera |
+| Milestone | Headline result |
 |---|---|
-| ![](reports/m0/overhead_rgb.png) | ![](reports/m0/mobile_rgb.png) |
+| M2 classical perception | Sub-mm pose under nominal noise. Two-camera tracking MOTA 0.98–1.00. ~11.6 mm of error per degree of calibration drift. |
+| M3 neural pose | Neural proposals + geometric refinement: success on < 50 %-visible objects 0.985 vs 0.853 for the classical fit, at half its time. The network alone is worse (0.735). |
+| M4 belief tracking | **Pre-registered.** Multimodal SE(3) belief vs Kalman tracker. Rotation success on partly visible objects 64.8 % → 87.0 % (paired +0.27, p = 0.007); no MOTA loss. ~0.4 mm worse translation; ~5,000× slower. |
+| M5 active vision (1) | **Pre-registered: H3 not supported.** Task-risk view selection ignoring calibration never moved and tied with fixed (0.49); *random* won (0.63). |
+| M5 active vision (2) | **Pre-registered: confirmed.** Calibration-aware task-risk: 0.667 vs 0.533 (entropy / covariance) and 0.520 (original), Holm p = 0.008. It picks views whose calibration biases cancel; ≈ random (+0.03, n.s.). |
 
-Depth back-projected through the camera model lands within 0.3 mm of the true sphere surface
-([EXP-M0-001](EXPERIMENT_REGISTRY.md)).
+The take-away so far: *a task-aware view objective helps only when its loss model contains the
+error that actually limits the task* — here view-dependent calibration bias, not pose ambiguity.
 
 ## Quickstart
 

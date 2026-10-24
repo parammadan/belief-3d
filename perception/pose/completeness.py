@@ -42,6 +42,43 @@ def _sample_surface(spec: ObjectSpec, n: int, rng: np.random.Generator) -> np.nd
     return np.column_stack([rad * np.cos(th), rad * np.sin(th), z])
 
 
+def surface_grid(spec: ObjectSpec, spacing: float) -> np.ndarray:
+    """Deterministic, roughly uniform surface samples with ~`spacing` m between neighbours.
+
+    Random samples leave thin regions unsampled by chance: 96 random points put 0-2
+    samples on a 10 x 60 mm strip, depending on the seed (measured)."""
+    if spec.shape == "sphere":
+        r = spec.size[0]
+        n = max(20, int(4 * np.pi * r * r / spacing**2))
+        k = np.arange(n) + 0.5
+        phi, th = np.arccos(1 - 2 * k / n), np.pi * (1 + 5**0.5) * k          # Fibonacci sphere
+        return r * np.column_stack([np.cos(th) * np.sin(phi), np.sin(th) * np.sin(phi), np.cos(phi)])
+    if spec.shape == "box":
+        e = np.asarray(spec.size, float)
+        pts = []
+        for ax in range(3):
+            a, b = [i for i in range(3) if i != ax]
+            ua = np.linspace(-e[a], e[a], max(2, round(2 * e[a] / spacing) + 1))
+            ub = np.linspace(-e[b], e[b], max(2, round(2 * e[b] / spacing) + 1))
+            A, B = np.meshgrid(ua, ub)
+            for sgn in (-1.0, 1.0):
+                P = np.zeros((A.size, 3))
+                P[:, a], P[:, b], P[:, ax] = A.ravel(), B.ravel(), sgn * e[ax]
+                pts.append(P)
+        return np.unique(np.round(np.vstack(pts), 9), axis=0)
+    r, hh = spec.size
+    n_th = max(8, round(2 * np.pi * r / spacing))
+    th = np.linspace(0, 2 * np.pi, n_th, endpoint=False)
+    zs = np.linspace(-hh, hh, max(2, round(2 * hh / spacing) + 1))
+    side = np.array([[r * np.cos(a), r * np.sin(a), z] for z in zs for a in th])
+    caps = []
+    for rr in np.arange(0.0, r + 1e-12, spacing):
+        m = max(1, round(2 * np.pi * rr / spacing))
+        for a in np.linspace(0, 2 * np.pi, m, endpoint=False):
+            caps += [[rr * np.cos(a), rr * np.sin(a), hh], [rr * np.cos(a), rr * np.sin(a), -hh]]
+    return np.vstack([side, np.asarray(caps)])
+
+
 def _normals(spec: ObjectSpec, P: np.ndarray, h: float = 1e-5) -> np.ndarray:
     g = np.column_stack([(sdf(spec, P + h * e) - sdf(spec, P - h * e)) / (2 * h) for e in np.eye(3)])
     return g / np.maximum(np.linalg.norm(g, axis=1, keepdims=True), 1e-12)

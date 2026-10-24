@@ -7,12 +7,12 @@ paired difference with bootstrap 95 % CI.
 Secondary (descriptive): D vs fixed and vs random (same test, no correction claimed); success on
 the ambiguous-at-t0 subset; mean camera travel time; decision time.
 
-Usage:  python experiments/analysis/m5_analysis.py reports/m5/<tag>/
+Usage:  python experiments/analysis/m5_analysis.py reports/m5/<tag>/ [--treat X --primary a,b --secondary c,d]
+(defaults reproduce EXP-M5-001's pre-registered analysis exactly)
 """
 from __future__ import annotations
 
 import json
-import sys
 from math import comb
 from pathlib import Path
 
@@ -60,24 +60,32 @@ def holm(ps: dict[str, float]) -> dict[str, float]:
 
 
 def main() -> None:
-    d = Path(sys.argv[1])
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("dir")
+    ap.add_argument("--treat", default="task_risk")
+    ap.add_argument("--primary", default="entropy,covariance")
+    ap.add_argument("--secondary", default="fixed,random")
+    a = ap.parse_args()
+    d = Path(a.dir)
     by = load(d)
     pols = sorted(by)
     seeds = sorted(set.intersection(*(set(v) for v in by.values())))
-    prim = {f"task_risk_vs_{b}": compare(by, "task_risk", b, seeds) for b in ("entropy", "covariance")}
+    t = a.treat
+    prim = {f"{t}_vs_{b}": compare(by, t, b, seeds) for b in a.primary.split(",")}
     adj = holm({k: v["mcnemar_p"] for k, v in prim.items()})
     for k, v in prim.items():
         v["p_holm"] = adj[k]
-    sec = {f"task_risk_vs_{b}": compare(by, "task_risk", b, seeds) for b in ("fixed", "random")}
-    amb = [s for s in seeds if by["task_risk"][s].get("ambiguous_t0")]
+    sec = {f"{t}_vs_{b}": compare(by, t, b, seeds) for b in a.secondary.split(",") if b}
+    amb = [s for s in seeds if by[t][s].get("ambiguous_t0")]
     amb_rates = {p: float(np.mean([bool(by[p][s].get("success")) for s in amb])) if amb else None for p in pols}
     travel = {p: float(np.mean([by[p][s].get("travel_s", 0.0) for s in seeds])) for p in pols}
     decide = {p: float(np.nanmean([by[p][s].get("decide_ms_mean") or np.nan for s in seeds])) for p in pols}
     overall = {p: float(np.mean([bool(by[p][s].get("success")) for s in seeds])) for p in pols}
-    out = {"n_paired_episodes": len(seeds), "n_ambiguous_t0": len(amb), "success": overall,
-           "primary_H3": prim, "secondary_vs_fixed_random": sec, "success_ambiguous_subset": amb_rates,
+    out = {"n_paired_episodes": len(seeds), "n_ambiguous_t0": len(amb), "success": overall, "treatment": t,
+           "primary": prim, "secondary": sec, "success_ambiguous_subset": amb_rates,
            "mean_travel_s": travel, "mean_decide_ms": decide}
-    (d / "analysis.json").write_text(json.dumps(out, indent=1))
+    (d / f"analysis_{t}.json").write_text(json.dumps(out, indent=1))
     print(json.dumps(out, indent=1))
 
 

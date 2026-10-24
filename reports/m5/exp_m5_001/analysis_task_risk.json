@@ -8,7 +8,8 @@
   "random": 0.6266666666666667,
   "task_risk": 0.4866666666666667
  },
- "primary_H3": {
+ "treatment": "task_risk",
+ "primary": {
   "task_risk_vs_entropy": {
    "n": 150,
    "rate_task_risk": 0.4866666666666667,
@@ -38,7 +39,7 @@
    "p_holm": 1.0
   }
  },
- "secondary_vs_fixed_random": {
+ "secondary": {
   "task_risk_vs_fixed": {
    "n": 150,
    "rate_task_risk": 0.4866666666666667,

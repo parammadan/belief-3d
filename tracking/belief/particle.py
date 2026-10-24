@@ -62,7 +62,7 @@ from perception.geometry import se3
 from perception.geometry.camera import PinholeIntrinsics
 from perception.geometry.symmetry import align_to
 from perception.pose.completeness import _normals, surface_grid
-from perception.pose.primitive_fit import lowest_point_height, sdf
+from perception.pose.primitive_fit import sdf
 
 
 @dataclass(frozen=True)
@@ -95,6 +95,18 @@ class BeliefConfig:
     fs_weight: float = 1.0                # lambda_fs; 0 disables the free-space term
     fs_spacing: float = 0.004             # m between model surface samples (~1 px at 0.8 m)
     fs_margin: float = 0.005              # m behind the model surface before a violation counts
+
+
+def lowest_point_heights(spec: ObjectSpec, R: np.ndarray, x: np.ndarray, n: np.ndarray, d: float) -> np.ndarray:
+    """Vectorised lowest_point_height for particles R (N,3,3), x (N,3)."""
+    centre = x @ n + d
+    a = np.einsum("nji,j->ni", R, n)                # R^T n per particle
+    if spec.shape == "sphere":
+        return centre - spec.size[0]
+    if spec.shape == "box":
+        return centre - np.abs(a) @ np.asarray(spec.size)
+    r, hh = spec.size
+    return centre - (r * np.sqrt(np.clip(1.0 - a[:, 2] ** 2, 0.0, None)) + hh * np.abs(a[:, 2]))
 
 
 def surface_area(spec: ObjectSpec) -> float:
@@ -145,6 +157,7 @@ class PoseBelief:
         self._N_O = _normals(spec, self._S_O)
         self._area_per_sample = surface_area(spec) / len(self._S_O)
         self.log_lik_last = np.zeros(n)
+        self.plane: tuple[np.ndarray, float] | None = None    # last support plane seen in an update
 
     # ------------------------------------------------------------------ predict
     def predict(self, t: float) -> None:
@@ -158,6 +171,17 @@ class PoseBelief:
         self.v = np.exp(-dt / c.tau_v) * self.v + self.rng.normal(0, np.sqrt(c.q_a * dt), (n, 3))
         self.R = self.R @ _so3_exp_batch(self.rng.normal(0, c.sigma_r * np.sqrt(dt), (n, 3)))
         self.t = t
+        if self.plane is not None and c.support_sigma:
+            # Solid objects cannot penetrate the support plane. Project violating particles back
+            # onto it and stop their into-plane velocity. A coasting belief (no updates) otherwise
+            # sank 10 cm through the table on harsh val (measured).
+            n_, d_ = self.plane
+            gap = lowest_point_heights(self.spec, self.R, self.x, n_, d_)
+            below = gap < 0.0
+            if below.any():
+                self.x[below] -= np.outer(gap[below], n_)
+                vn = self.v[below] @ n_
+                self.v[below] -= np.outer(np.minimum(vn, 0.0), n_)
 
     # ------------------------------------------------------------------ update
     def free_space_log_lik(self, view: DepthView, s: float) -> np.ndarray:
@@ -199,7 +223,7 @@ class PoseBelief:
                 ll = ll + self.free_space_log_lik(view, s)
         if plane is not None and c.support_sigma:
             n_, d_ = plane
-            gap = np.array([lowest_point_height(self.spec, R, x, n_, d_) for R, x in zip(self.R, self.x)])
+            gap = lowest_point_heights(self.spec, self.R, self.x, n_, d_)
             ll += -0.5 * (gap / c.support_sigma) ** 2
         return ll
 
@@ -298,6 +322,8 @@ class PoseBelief:
 
         Returns the ESS of the final stage's reweighting."""
         c, n = self.cfg, len(self.w)
+        if plane is not None:
+            self.plane = plane
         lik_args = (P_W, noise_sigma, plane, views)
         remaining, cum, ess = 1.0, 0.0, float(n)
         ll = self.log_likelihood(*lik_args)

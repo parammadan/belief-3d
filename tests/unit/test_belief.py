@@ -197,3 +197,29 @@ def test_prediction_diffuses_without_updates_and_is_causal():
     assert np.trace(b.translation_cov()) > s0
     with pytest.raises(ValueError):
         b.predict(0.5)
+
+
+@pytest.mark.parametrize("name", ["box_red", "cyl_green", "cyl_orange", "sphere_blue"])
+def test_vectorised_lowest_point_matches_scalar(name):
+    from perception.pose.primitive_fit import lowest_point_height
+    from tracking.belief.particle import lowest_point_heights
+    spec = SPEC[name]
+    rng = np.random.default_rng(0)
+    R = _so3_exp_batch(rng.normal(size=(30, 3)))
+    x = rng.normal(0, 0.05, (30, 3)) + [0, 0, 0.45]
+    v = lowest_point_heights(spec, R, x, *PLANE)
+    s = [lowest_point_height(spec, Ri, xi, *PLANE) for Ri, xi in zip(R, x)]
+    assert np.allclose(v, s, atol=1e-12)
+
+
+def test_predict_keeps_particles_out_of_the_table():
+    from tracking.belief.particle import lowest_point_heights
+    spec = SPEC["cyl_orange"]
+    T = se3.make_T(np.eye(3), [0.0, 0.0, 0.445])
+    b = PoseBelief(spec, [T], 0.0, BeliefConfig(), seed=0)
+    b.plane = PLANE
+    b.v[:] = [0.0, 0.0, -0.3]                       # everything heading into the table
+    for k in range(10):
+        b.predict(0.1 * (k + 1))
+    assert lowest_point_heights(spec, b.R, b.x, *PLANE).min() > -1e-9
+    assert (b.v @ PLANE[0]).min() > -0.1            # into-plane velocity removed at contact

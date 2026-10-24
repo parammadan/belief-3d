@@ -76,6 +76,7 @@ class BeliefTracker:
                  seed: int = 0, use_free_space: bool = True, relative_calibration: bool = True):
         self.cfg, self.bcfg = cfg, bcfg
         self.relative_calibration = relative_calibration
+        self.reid_dist = 0.10          # m
         self.last_offsets: dict[str, np.ndarray] = {}
         self.tracks: list[BeliefTrack] = []
         self._next_id = 0
@@ -188,6 +189,19 @@ class BeliefTracker:
                 hyps = list(d.hypotheses) or [d.T_WO]
                 b = PoseBelief(SPEC[d.spec_name], hyps, t, self.bcfg, seed=self._seed + self._next_id)
                 b.update(d.points_W, d.noise_sigma, d.plane, fs_views)
+                # Re-identification: a confident unexplained detection near a same-class track that
+                # was not updated this frame re-initialises that track (keeping its ID) instead of
+                # spawning a duplicate (a coasting duplicate cost 10 FP + 1 ID switch on harsh val).
+                stale = [tr for tr in self.tracks if tr.color_class == d.color_class and tr.confirmed
+                         and tr.track_id not in updated
+                         and np.linalg.norm(tr.position - d.T_WO[:3, 3]) < self.reid_dist]
+                if stale:
+                    old = min(stale, key=lambda tr: np.linalg.norm(tr.position - d.T_WO[:3, 3]))
+                    old.belief, old.spec_name = b, d.spec_name
+                    old.hits += 1
+                    updated.add(old.track_id)
+                    cams_seen[old.track_id] = cams_seen.get(old.track_id, 0) + 1
+                    continue
                 self.tracks.append(BeliefTrack(self._next_id, d.color_class, d.spec_name, b))
                 self._next_id += 1
                 updated.add(self.tracks[-1].track_id)

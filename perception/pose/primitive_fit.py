@@ -118,18 +118,21 @@ def fit_hypotheses(
     max_points: int = 400,
     seed: int = 0,
     support_sigma: float | None = 0.005,
+    extra_inits: list[np.ndarray] | None = None,
 ) -> list[PoseEstimate]:
     """All local optima from the initialisations, best (lowest robust cost) first.
 
     Near-ties are exactly the ambiguities a belief should keep. fit_primitive
-    returns only the first of these."""
+    returns only the first of these. `extra_inits` *replaces* the geometric
+    initialisations, e.g. with neural proposals (proposal + refinement)."""
     if len(P_W) < 10:
         raise ValueError("too few points to fit")
     rng = np.random.default_rng(seed)
     P = P_W[rng.choice(len(P_W), max_points, replace=False)] if len(P_W) > max_points else P_W
     f_scale = max(0.002, 2.0 * noise_sigma)
     out: list[PoseEstimate] = []
-    for T0 in initialisations(spec, P, plane_n, plane_d):
+    inits = initialisations(spec, P, plane_n, plane_d) if extra_inits is None else list(extra_inits)
+    for T0 in inits:
         R0, t0 = T0[:3, :3], T0[:3, 3]
         w_sup = np.sqrt(len(P)) * f_scale / support_sigma if support_sigma else 0.0
 

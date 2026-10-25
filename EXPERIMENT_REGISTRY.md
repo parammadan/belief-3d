@@ -693,3 +693,48 @@ same script (4.7×), so treat 8.3× as timing noise.
   iterations × 4.5 initialisations per segment. Further gains need an algorithmic change, such as
   fewer initialisations (pruning by early cost) or an analytic Jacobian. Either would change
   results, so it needs its own accuracy check. Perception is still not real-time on CPU.
+
+## EXP-M8-001 — PRE-REGISTERED final study (written before running; code frozen at `c276e52`)
+
+- **Question (RQ, docs/research_question.md).** At equal camera, compute and grasp-attempt budgets,
+  does the full system beat the baselines on simulated grasp reliability, and which components
+  carry the gain? The full system is the calibrated task-risk view policy D2 (λ=0.005), the B2
+  belief, and online self-calibration.
+- **Regime.** Identical to EXP-M5-001/002/003, so results are comparable:
+  - `mugs` scenario, `harsh` noise, mobile camera only;
+  - candidate views at 12° / 25° / 45°; budget 2 moves after one shared warm-up frame;
+  - physical grasp scoring, one attempt.
+- **Arms (8, all paired on the same seeds).**
+
+  | Arm | Views | Grasp pose from | Self-cal |
+  |---|---|---|---|
+  | `fixed@b0` (B0) | fixed | latest single-frame fit | no |
+  | `fixed@b1` (B1) | fixed | Kalman tracker fed the same detections | no |
+  | `fixed` (B2) | fixed | belief MAP mode | no |
+  | `random` | random | belief | no |
+  | `entropy` (B3, info gain) | mode-weight entropy | belief | no |
+  | `task_risk_cal_l005` (D2) | calibrated task risk | belief | no |
+  | `fixed+selfcal` | fixed | belief | yes |
+  | `task_risk_cal_l005+selfcal` (**full**) | calibrated task risk | belief | yes |
+
+  B0 and B1 share B2's target choice, which picks the highest-risk target from the belief. The
+  fixed policy's views don't depend on the belief, so the only difference between B0, B1 and B2 is
+  the pose the grasp is planned from (same observations). That isolates the estimator; it is not a
+  fully independent B1 pipeline.
+- **Data.** 300 never-evaluated test episodes, offset 4000–4299 (seeds 2,004,000–2,004,299).
+- **Primary family (Holm-corrected, exact two-sided McNemar on paired outcomes).**
+  - **P1** full system > B1. This is the headline claim against the standard tracker baseline.
+  - **P2** D2 > B3 entropy. Replicates EXP-M5-002 on new seeds.
+  - **P3** full system > D2. Self-calibration's contribution; replicates H7 (EXP-M5-003).
+  - **P4** B2 > B1 with fixed views. H1 (belief vs Kalman) in the closed loop.
+- **Secondary (descriptive, uncorrected).**
+  - B1 vs B0; D2 vs random. EXP-M5-002 found them ≈ equal, so no claim is made either way.
+  - fixed+selfcal vs fixed: a control, expected ≈ 0.
+  - full vs B2 fixed; full vs B0.
+  - Every arm on the ambiguous-at-t₀ subset.
+- **Analysis.** `python experiments/analysis/m8_analysis.py
+  "reports/m8/exp_m8_001_sc0+reports/m8/exp_m8_001_sc1" --out reports/m8/exp_m8_001_analysis.json`
+- **Compute.** Explorer CPU array of 60 tasks × 5 episodes each. sc0 runs 6 arms; sc1 runs 2 arms
+  with `SELFCAL=1`. No GPU.
+- **Commitment.** Report every outcome as-is, including nulls and reversals. Any episode lost to
+  infrastructure failure is reported, and its seed is re-run unchanged (no seed replacement).

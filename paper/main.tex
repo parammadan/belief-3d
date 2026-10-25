@@ -162,7 +162,8 @@ $\chi^2_3$.}
 The C++ free-space likelihood matches NumPy to $2.7\times10^{-13}$ and makes a belief update
 3.4$\times$ faster (164 $\rightarrow$ 48\,ms). On a V100 the pose proposer runs at 0.48\,ms per
 call in ONNX Runtime (batch 1); TensorRT~10.16 does not support SM\,70.
-\pending{A100 TensorRT numbers (PERF-M7-004)}. Perception remains ${\sim}$237\,ms per frame on
+On an A100, TensorRT fp16 takes 0.19\,ms at batch 1 (4.9$\times$ PyTorch fp32) and reaches
+161k samples/s at batch 256, with top-1 error unchanged (4.921 vs 4.917\,mm). Perception remains ${\sim}$237\,ms per frame on
 CPU, so the system is not real-time.
 
 \section{Limitations}\label{sec:limits}

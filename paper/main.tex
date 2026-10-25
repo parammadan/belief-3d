@@ -1,0 +1,185 @@
+\documentclass[10pt,twocolumn]{article}
+\usepackage[margin=0.8in]{geometry}
+\usepackage{amsmath,amssymb,booktabs,graphicx,xcolor,hyperref}
+\usepackage[numbers]{natbib}
+\newcommand{\pending}[1]{\colorbox{yellow!40}{\textsf{\small PENDING: #1}}}
+
+\title{Look Where the Grasp Fails: Calibration-Aware Active Viewpoint Selection\\
+over a Multimodal 6D Pose Belief}
+\author{\pending{author line and affiliation}}
+\date{Draft --- \today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+A robot that may move its camera before grasping can choose views that reduce pose
+uncertainty, or views that reduce the chance that the grasp fails. We test, in simulation and
+under pre-registered protocols, whether selecting views by \emph{expected grasp failure} under a
+temporal, multimodal SE(3) particle belief beats information objectives (hypothesis entropy,
+expected rotational covariance) at equal camera budgets. A task-risk objective that treats the camera
+calibration as exact does \emph{not} help: it predicts near-zero risk and never moves (null,
+150 paired episodes). The limiting error is a per-episode extrinsic calibration bias that is fixed
+in the camera frame, so its world-frame effect depends on the view. Modelling that bias in the
+predicted grasp loss (D2) raises physical grasp success from 0.52 to 0.67 and beats both
+information objectives ($+0.13$, Holm $p=0.0078$). Online self-calibration from the views D2
+collects adds a further $+0.13$ (0.64 $\rightarrow$ 0.77, $p=0.0034$). The gains come mostly from
+view \emph{diversity} plus bias estimation: once self-calibrated, D2 is statistically
+indistinguishable from random views. \pending{final-study (EXP-M8-001) and coverage
+(EXP-M8-002) sentences}. All results are simulation only.
+\end{abstract}
+
+\section{Introduction}
+Active perception for manipulation usually picks the next view to reduce uncertainty: the entropy
+of pose hypotheses~\cite{liu2025activepose} or the predicted rotational
+covariance~\cite{jin2025poseflow}. Uncertainty is a proxy; what matters is whether the grasp
+succeeds. The principle that observation should be chosen for its effect on task outcome is
+established in belief-space task planning~\cite{curtis2024potamp}. We do not claim it. Our
+question is narrower and empirical: \emph{at the level of camera viewpoints over a continuous
+multimodal 6D belief, at equal budgets and with paired seeds, does choosing views by expected
+grasp loss beat choosing them by information gain, and why?}
+
+\paragraph{Contributions.}
+\begin{enumerate}
+\item A controlled, pre-registered comparison of task-risk and information-gain view selection at
+equal camera budgets, scored by executing grasps on a simulated Franka Panda.
+\item A negative result with a mechanism: a task-risk objective that treats calibration as exact
+ties with a fixed camera, because the error that limits grasping is view-dependent calibration
+bias that none of the objectives model.
+\item A calibration-aware task-risk objective (D2) and online self-calibration from the
+collected views, each confirmed on held-out seeds, with a component ablation
+\pending{EXP-M8-001}.
+\item An open, reproducible stack: simulation, perception, belief tracker, policies, grasp
+executor, C++/ONNX/TensorRT inference paths, and an experiment registry in which every claim is
+traceable to a command, commit and seed range.
+\end{enumerate}
+
+\section{Related work}
+\textbf{Multimodal 6D pose.} PoseRBPF~\cite{deng2019poserbpf} tracks a Rao-Blackwellised
+particle belief that handles symmetry and occlusion; SE(3)-PoseFlow~\cite{jin2025poseflow}
+samples pose distributions with flow matching. Our belief tracker is a baseline-level component,
+not a contribution over these.
+\textbf{Active pose estimation.} ActivePose~\cite{liu2025activepose} selects views by hypothesis
+entropy plus a VLM ambiguity score; SE(3)-PoseFlow minimises predicted rotational covariance over
+candidate views. Neither links the view objective to grasp outcome. Our C1 and C2 comparators
+implement these two objectives (without the VLM term).
+\textbf{Task-driven observation.} POTAMP~\cite{curtis2024potamp} shows information gathering
+emerging from goal-directed belief-space planning over abstract task beliefs; it does not compare
+viewpoint objectives.
+\textbf{Pose estimators.} FoundationPose~\cite{wen2024foundationpose} is the strongest published
+estimator; we did not run it (Section~\ref{sec:limits}).
+
+\section{System}
+\textbf{Simulation.} MuJoCo~\cite{todorov2012mujoco} tabletop with a Franka Panda (Menagerie),
+randomised primitive objects and mugs, a fixed overhead and a mobile RGB-D camera. Noise presets
+model depth noise, dropout and a per-episode extrinsic calibration error
+(${\sim}1^\circ$, 5\,mm). Seeds are split by range (train / calibration / val / test) and
+inference code may not import simulator state (enforced by an import-leakage test).
+
+\textbf{Perception.} RANSAC table plane, depth-continuous segmentation with a hue vote, and a
+robust SDF fit of the matched primitive with a support prior. A small point network proposes
+pose hypotheses that the SDF fit refines (EXP-M3-001: success on views under 50\,\% visible rises
+from 0.853 to 0.985).
+
+\textbf{Belief.} Per object, a particle filter on SE(3)$\times\mathbb{R}^3$ with a two-sided
+likelihood (surface agreement and free-space violations), progressive
+correction~\cite{oudjane2000progressive} and mode-preserving
+resampling~\cite{vermaak2003mixture}. Against a Kalman tracker on the same detections it raises
+rotation success on partial views from 64.8\,\% to 87.0\,\% ($p=0.0074$) with no MOTA loss
+(EXP-M4-001).
+
+\textbf{View policies} (budget: 2 camera moves after one shared warm-up frame; 24 candidate views).
+\emph{fixed}; \emph{random}; \emph{C1} mode-weight entropy; \emph{C2} expected rotational variance;
+\emph{D} expected grasp failure of the grasp the system would execute after the next view,
+estimated from belief particles with the tracker's own observation model; \emph{D2} as D but with
+the camera's calibration error as a latent in the predicted loss, so views whose biases cancel
+lower the expected failure, plus a travel cost ($\lambda=0.005$).
+
+\textbf{Self-calibration.} A linear-Gaussian MAP estimate of each camera's extrinsic error from
+matched track centres across views. Only the view-varying part is identifiable (a gauge freedom);
+the grasp centre is corrected by the estimated bias over the views that saw the target.
+
+\textbf{Grasping.} A top-down parallel-jaw grasp planned from the target belief's MAP mode,
+executed on the simulated Panda; success means the target object is lifted more than 8\,cm
+(evaluator reads simulator state).
+
+\section{Experimental protocol}
+Every confirmatory experiment was written into the registry, with frozen commit, seed range,
+primary test and analysis command, before it ran. Episodes are paired: each policy replays the
+same seed, so initial observations are bit-identical. Primary tests are exact two-sided McNemar
+tests on paired outcomes with Holm correction across a family; we report bootstrap 95\,\% CIs.
+Development used only val seeds. Regime for all policy studies: mug scenes, harsh noise, mobile
+camera only, views at 12/25/45$^\circ$ elevation, physical scoring, one attempt.
+
+\section{Results}
+\subsection{Task risk that treats calibration as exact does not move (EXP-M5-001)}
+On 150 test episodes D tied with fixed (0.487 vs 0.487) and lost slightly to C1/C2 (0.507;
+$\Delta=-0.020$, Holm $p=1.0$): \textbf{H3 not supported}. D predicted near-zero risk under the
+belief and stayed put. Unexpectedly, random views won (0.627; $p=0.0019$ vs D). Random's grasp
+centre error was lower in 73\,\% of episodes. The extrinsic error is fixed in the camera frame, so
+moving the camera re-samples its world-frame effect and diverse views average it out.
+
+\subsection{Calibration-aware task risk (EXP-M5-002)}
+D2 was designed on val from this mechanism and re-registered.
+\begin{table}[h]\centering\small
+\begin{tabular}{lccc}\toprule
+Policy & Success & Centre err. & Views\\\midrule
+fixed & 0.520 & 18.3\,mm & 1.00\\
+D (task risk) & 0.520 & 18.3\,mm & 1.00\\
+C1 entropy & 0.533 & 17.1\,mm & 1.06\\
+C2 covariance & 0.533 & 17.1\,mm & 1.06\\
+random & 0.633 & 14.4\,mm & 1.95\\
+\textbf{D2} & \textbf{0.667} & \textbf{12.7\,mm} & 1.62\\\bottomrule
+\end{tabular}
+\caption{EXP-M5-002, 150 paired test episodes. D2 beats D, C1 and C2 (each Holm $p=0.0078$);
+D2 vs random $+0.033$, $p=0.54$.}
+\end{table}
+D2 reached the lowest centre error with fewer distinct views than random: it chooses views whose
+biases cancel rather than simply moving more.
+
+\subsection{Self-calibration from the collected views (EXP-M5-003)}
+Correcting the grasp by the online bias estimate raised D2 from 0.640 to 0.767 ($+0.127$
+[0.047, 0.207], $p=0.0034$). The fixed-camera control showed exactly zero effect, as predicted:
+with one view there is nothing to identify. The full system beats fixed by $+0.253$ (0.513
+$\rightarrow$ 0.767). Self-calibrated D2 and self-calibrated random are not distinguishable
+($+0.020$, $p=0.75$).
+
+\subsection{Closed-loop pick-and-place and recovery (EXP-M6-002)}
+With a tray placement and up to two attempts, success is 0.50 (fixed) and 0.64 (D2). Retries
+recovered few failures (14\,\% retry success; H6 not supported): a re-plan from the same belief
+does not remove calibration bias.
+
+\subsection{Final study and ablation (EXP-M8-001)}
+\pending{Eight paired arms on 300 new test seeds: B0 single-frame, B1 Kalman, B2 belief (fixed
+views), random, B3 entropy, D2, fixed+selfcal, full system. Primary family P1--P4 with Holm.}
+
+\subsection{Uncertainty calibration (EXP-M8-002)}
+\pending{Coverage of the position covariance at 50/80/95\,\% after held-out scaling. Stated
+expectation: a per-preset scalar does not meet $\pm5$\,pp because the NEES distribution is not
+$\chi^2_3$.}
+
+\subsection{Systems}
+The C++ free-space likelihood matches NumPy to $2.7\times10^{-13}$ and makes a belief update
+3.4$\times$ faster (164 $\rightarrow$ 48\,ms). On a V100 the pose proposer runs at 0.48\,ms per
+call in ONNX Runtime (batch 1); TensorRT~10.16 does not support SM\,70.
+\pending{A100 TensorRT numbers (PERF-M7-004)}. Perception remains ${\sim}$237\,ms per frame on
+CPU, so the system is not real-time.
+
+\section{Limitations}\label{sec:limits}
+Simulation only; no hardware validation is claimed. One policy regime and one calibration-error
+model; objects are primitives and mugs with known models. D2 and self-calibration were designed
+after observing EXP-M5-001, though each was confirmed on new seeds. FoundationPose was not run.
+The B0/B1 baselines in EXP-M8-001 share B2's target choice, isolating the pose estimator rather
+than forming independent pipelines.
+
+\section{Conclusion}
+A task-aware view objective helps only when its loss model contains the error that actually
+limits the task. Here that error was view-dependent calibration bias, not pose ambiguity, and the
+benefit comes mostly from view diversity plus estimating the bias it reveals.
+
+\paragraph{Reproducibility.} Code, registry and reports:
+\url{https://github.com/parammadan/belief-3d}.
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+\end{document}

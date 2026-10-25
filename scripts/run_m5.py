@@ -39,7 +39,7 @@ from sim.environments.scenario import PRESET_SCENARIOS, Scenario
 from sim.environments.tabletop import PANDA_XML, TabletopScene
 from tracking.belief.particle import BeliefConfig, DepthView
 from tracking.belief_tracker import BeliefTracker
-from tracking.tracker import TrackerConfig
+from tracking.tracker import MultiObjectTracker, TrackerConfig
 
 SPEC = {o.name: o for o in CATALOG}
 
@@ -86,7 +86,8 @@ class Episode:
         self.scene.close()
 
 
-def step_tracker(tracker, frames, k):
+def step_tracker(tracker, frames, k, shadow=None, last=None):
+    """B2 step. `shadow` (B1 Kalman) gets the same detections; `last` collects this frame's detections (B0)."""
     dets, views = [], {}
     t = None
     for c, (obs, _gt) in frames.items():
@@ -94,6 +95,10 @@ def step_tracker(tracker, frames, k):
         dets += res.detections
         views[c] = DepthView(obs.depth, obs.intrinsics, obs.T_WC)
         t = obs.timestamp
+    if shadow is not None:
+        shadow.step(t, dets)
+    if last is not None:
+        last[:] = dets
     return tracker.step(t, dets, views), next(iter(frames.values()))[0].intrinsics
 
 
@@ -133,16 +138,21 @@ def feed_selfcal(calibs: dict, tracker, frames) -> None:
 
 def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: str, rng_seed: int,
                 cameras: tuple[str, ...] = ("overhead", "mobile"), warmup: int = 1,
-                elevations: tuple[float, ...] = (35.0, 60.0), physical: bool = False, selfcal: bool = False) -> dict:
+                elevations: tuple[float, ...] = (35.0, 60.0), physical: bool = False, selfcal: bool = False,
+                grasp_source: str = "belief") -> dict:
+    """grasp_source: "belief" (B2 MAP mode), "kf" (B1: Kalman track fed the same detections) or "frame"
+    (B0: the latest frame's best fit). Views and target are chosen from the B2 belief in every case, so
+    only the pose the grasp is planned from differs (paired, same observations)."""
     ep = Episode(seed, scenario, noise, cameras, elevations)
-    tracker = BeliefTracker(TrackerConfig(calib_rot_sigma=np.radians(1.0), calib_trans_sigma=0.005),
-                            BeliefConfig(), seed=seed)
+    tcfg = TrackerConfig(calib_rot_sigma=np.radians(1.0), calib_trans_sigma=0.005)
+    tracker = BeliefTracker(tcfg, BeliefConfig(), seed=seed)
+    shadow, last = MultiObjectTracker(tcfg), []
     t0 = time.perf_counter()
     history: list[int] = []              # views observed this episode (calibration-aware policy input)
     from perception.calibration.self_calib import SelfCalibrator
     calibs = {c: SelfCalibrator() for c in cameras}
     frames = ep.observe()
-    tracks, K = step_tracker(tracker, frames, 0)
+    tracks, K = step_tracker(tracker, frames, 0, shadow, last)
     feed_selfcal(calibs, tracker, frames)
     history.append(ep.view)
     # Warm-up: one more frame from the SAME starting view for every policy, so single-camera
@@ -150,7 +160,7 @@ def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: 
     # of the movement budget. (Without it, all mobile-only episodes were skipped on val.)
     for w in range(warmup):
         frames = ep.observe()
-        tracks, _ = step_tracker(tracker, frames, 100 + w)
+        tracks, _ = step_tracker(tracker, frames, 100 + w, shadow, last)
         feed_selfcal(calibs, tracker, frames)
     renderer = SignatureRenderer(K)
     risk = TaskRiskPolicy()
@@ -184,7 +194,7 @@ def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: 
         chosen.append(v)
         history.append(v)
         frames = ep.observe()
-        step_tracker(tracker, frames, k)
+        step_tracker(tracker, frames, k, shadow, last)
         feed_selfcal(calibs, tracker, frames)
     tgt = next((tr for tr in tracker.tracks if tr.track_id == tid), None)
     gt_frame = next(iter(frames.values()))[1]
@@ -194,9 +204,23 @@ def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: 
     else:
         modes = modes_of(tgt.belief)
         i = int(np.argmax(modes.weights))
-        g = plan_grasp(SPEC[tgt.spec_name], modes.poses[i])
+        T_grasp, spec_g = modes.poses[i], SPEC[tgt.spec_name]
+        if grasp_source != "belief":
+            # Nearest same-colour estimate to the B2 target's MAP position (estimates only, no ground truth).
+            pool = ([(o.T_WO, o.spec_name) for o in shadow.confirmed() if o.color_class == tgt.color_class]
+                    if grasp_source == "kf" else
+                    [(d.T_WO, d.spec_name) for d in last if d.color_class == tgt.color_class])
+            if pool:
+                T_grasp, name = min(pool, key=lambda e: np.linalg.norm(e[0][:3, 3] - T_grasp[:3, 3]))
+                spec_g = SPEC[name]
+            else:
+                T_grasp = None
+        if T_grasp is None:
+            g = None
+        else:
+            g = plan_grasp(spec_g, T_grasp)
         selfcal_shift = None
-        if selfcal:
+        if selfcal and g is not None:
             # Correct the grasp centre by the estimated mean calibration bias over the views in which
             # the target was observed (per camera; summed over cameras weighted by observation count).
             p0 = g["p"].copy()
@@ -211,17 +235,20 @@ def run_episode(seed: int, policy_name: str, budget: int, scenario: str, noise: 
                 bias = np.average(np.array(shifts), axis=0, weights=counts)
                 g["p"] = p0 - bias
                 selfcal_shift = bias.tolist()
-        result = evaluate_grasp(ep, SPEC[tgt.spec_name], g, gt_frame)
-        result["proxy_success"] = result.pop("success")
-        if physical:
-            result |= physical_grasp(ep, g, tgt.color_class)
+        if g is None:
+            result = {"success": False, "proxy_success": False, "reason": f"no {grasp_source} estimate"}
         else:
-            result["success"] = result["proxy_success"]
+            result = evaluate_grasp(ep, SPEC[tgt.spec_name], g, gt_frame)
+            result["proxy_success"] = result.pop("success")
+            if physical:
+                result |= physical_grasp(ep, g, tgt.color_class)
+            else:
+                result["success"] = result["proxy_success"]
         final_modes, final_risk = len(modes.weights), risk.grasp_now_loss(ctx_for(tgt))
     ep.close()
     return {"seed": seed, "policy": policy_name, "budget": budget, "scenario": scenario, "noise": noise,
             "cameras": list(cameras), "warmup": warmup, "elevations": list(elevations), "physical": physical,
-            "selfcal": selfcal, "selfcal_shift": selfcal_shift if tgt is not None else None,
+            "selfcal": selfcal, "grasp_source": grasp_source, "selfcal_shift": selfcal_shift if tgt is not None else None,
             "target_class": target.spec_name, "init_modes": init_modes, "init_risk": init_risk,
             "ambiguous_t0": bool(init_modes >= 2 or init_risk > 0.1), "views": chosen, "travel_s": travel,
             "final_modes": final_modes, "final_risk": final_risk, "decide_ms_mean": 1e3 * float(np.mean(decide_s)) if decide_s else None,
@@ -257,8 +284,11 @@ def main() -> None:
             for p in a.policies.split(","):
                 if (seed, p) in done:
                     continue
-                r = run_episode(seed, p, a.budget, a.scenario, a.noise, rng_seed=seed + 17, cameras=cams,
-                                elevations=elev, physical=a.physical, selfcal=a.selfcal)
+                pol, _, src = p.partition("@")            # "fixed@b1" = fixed views, B1 grasp pose
+                r = run_episode(seed, pol, a.budget, a.scenario, a.noise, rng_seed=seed + 17, cameras=cams,
+                                elevations=elev, physical=a.physical, selfcal=a.selfcal,
+                                grasp_source={"": "belief", "b1": "kf", "b0": "frame"}[src])
+                r["policy"] = p
                 if a.selfcal:
                     r["policy"] = p + "+selfcal"
                 f.write(json.dumps(r) + "\n")

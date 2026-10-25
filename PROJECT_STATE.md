@@ -51,7 +51,7 @@ claim stands (see literature_review).
 - [x] **M1**: robot, viewpoints, noise, scenarios, dataset writer/validator
 - [x] **M2**: classical segmentation, SDF pose fit, completeness, CV-KF + Hungarian tracking, calibration checks, independent evaluator
 - [x] **M3** neural pose · [x] **M4** belief tracking · [x] **M5** active perception (EXP-M5-001 null; EXP-M5-002 confirmed)
-- [x] **M6** closed-loop manipulation · [x] **M7** systems optimisation · [ ] M8 final study (running)
+- [x] **M6** closed-loop manipulation · [x] **M7** systems optimisation · [x] **M8** final study (EXP-M8-001, EXP-M8-002 done; paper draft in paper/)
 
 ## M8 status
 

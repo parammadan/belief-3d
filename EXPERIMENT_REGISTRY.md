@@ -793,3 +793,85 @@ within ±5 pp at 50/80/95 %.
   - The run above built its engines fresh.
 - `reports/m7/infer_bench_a100.json`. Model-only latency; the perception pipeline still costs
   ~237 ms per frame on CPU (PERF-M7-006).
+
+## EXP-M8-001 RESULT (pre-registered above; 300 test seeds, 299 paired; physical scoring)
+
+All 120 array tasks COMPLETED: 1,800 sc0 rows and 600 sc1 rows (every arm × 300 seeds). Seed
+2,004,205 was skipped in every arm ("no confirmed tracks"; this happens before any arm-specific
+step), which leaves 299 paired episodes.
+
+| Arm | Physical success |
+|---|---|
+| B0 single-frame pose (`fixed@b0`) | 0.495 |
+| B1 Kalman (`fixed@b1`) | 0.488 |
+| B2 belief, fixed views (`fixed`) | 0.482 |
+| fixed + self-cal | 0.465 |
+| B3 entropy | 0.515 |
+| random | 0.619 |
+| D2 calibrated task risk | 0.656 |
+| **full system (D2 + self-cal)** | **0.773** |
+
+| Primary (Holm across 4) | Δ (bootstrap 95 % CI) | Discordant | McNemar p | Holm p | Verdict |
+|---|---|---|---|---|---|
+| **P1 full vs B1** | **+0.284 [0.217, 0.351]** | 106 / 21 | 7.5e-15 | 3.0e-14 | **CONFIRMED** |
+| **P2 D2 vs B3 entropy** | **+0.140 [0.080, 0.201]** | 68 / 26 | 1.7e-5 | 3.5e-5 | **CONFIRMED** (replicates EXP-M5-002) |
+| **P3 full vs D2 (self-cal)** | **+0.117 [0.070, 0.167]** | 47 / 12 | 5.1e-6 | 1.5e-5 | **CONFIRMED** (replicates H7) |
+| P4 B2 vs B1, fixed views | −0.007 [−0.040, 0.027] | 12 / 14 | 0.85 | 0.85 | **NOT SUPPORTED** |
+
+Secondary (uncorrected):
+- B1 vs B0 −0.007 (p = 0.75);
+- D2 vs random +0.037 [−0.027, 0.100] (p = 0.31; ≈ equal, as in EXP-M5-002);
+- fixed+selfcal vs fixed −0.017 (3 / 8, p = 0.23; see the integrity note);
+- full vs B2 fixed +0.291; full vs B0 +0.278.
+- Ambiguous-at-t₀ subset: n = 50 (rates in `reports/m8/exp_m8_001_analysis.json`).
+
+**Reading.**
+- With a fixed camera, the pose estimator does not matter for grasp success: B0 ≈ B1 ≈ B2, within
+  1.3 pp. The belief's rotation advantage (EXP-M4-001) does not show up as grasp success in this
+  regime, because calibration bias, not orientation, limits the grasp.
+- All of the gain comes from *where the camera looks* (D2, +0.17 over B2 fixed) and from
+  *estimating the bias those views reveal* (self-cal, +0.12).
+- Self-calibrated D2 vs plain random is +0.154 (0.773 vs 0.619). Plain D2 vs random is not
+  significant.
+
+**Integrity note: cross-node floating-point non-determinism (found in the control arm).**
+- The fixed+selfcal correction is numerically zero (median 3e-7 mm), yet 11 / 299 outcomes
+  differed from `fixed`.
+- Diagnosis: sc0 and sc1 ran as separate arrays, so a seed's two runs usually landed on different
+  nodes.
+  - Same node: **15 / 15 pairs bit-identical**.
+  - Different nodes: 75 / 284 pairs differ in grasp-centre error and 11 flip outcome.
+  - 14 D2 episodes chose different views across the two arrays.
+- So replay is exact per machine, not across Explorer's heterogeneous CPUs (likely SIMD-dispatch
+  differences in NumPy/BLAS).
+- Effect on the claims:
+  - P2 and P4 compare arms run in the same task on the same node, so they are unaffected.
+  - P1 and P3 cross arrays, so they carry this extra, direction-free noise. Its size is measured
+    by the control: 3 / 8 discordant, p = 0.23. Their effects (106 / 21 and 47 / 12 discordant)
+    are far outside it.
+- The pre-registration allowed re-runs only for infrastructure failure, so nothing was re-run.
+- **Fix for future studies:** run all arms of a seed in one task, or pin the CPU feature set.
+  EXP-M5-003's exact-zero control was the same design and was presumably luck of node placement.
+
+## EXP-M8-002 RESULT (pre-registered above; calib 20 + test 20 episodes per condition; 8/8 tasks COMPLETED)
+
+B2 position covariance, coverage on test (≈ 2,670 track-frames per preset):
+
+| Scaling | nominal 50 / 80 / 95 % | harsh 50 / 80 / 95 % |
+|---|---|---|
+| raw | 1.00 / 1.00 / 1.00 | 0.78 / 0.94 / 1.00 |
+| **per-preset scalar (primary)** | **0.540 / 0.796 / 0.916** | **0.515 / 0.814 / 0.933** |
+| global scalar | 1.00 / 1.00 / 1.00 | 0.33 / 0.59 / 0.83 |
+| per-level conformal | 0.49 / 0.80 / 0.96 | 0.50 / 0.81 / 0.94 |
+
+- **H2 CONFIRMED**, against our stated expectation: all 6 checks are within ±5 pp.
+- Fitted scales: nominal s = 0.0015, harsh s = 0.55. Nominal's covariance is ~700× too wide,
+  because it carries the calibration allowance that nominal noise does not have.
+- Weakest cell: nominal 95 % = 0.916, CI [0.894, 0.934], which does **not** include 0.95. The
+  point estimate meets the criterion, but the tail is slightly under-covered. The harsh CIs are
+  wide (episode-clustered; [0.42, 0.61] at 50 %).
+- The val probe predicted failure: harsh 50 % = 0.58 and nominal 95 % = 0.91 on 6 val episodes.
+  On the larger calibration/test sets, harsh 50 % landed at 0.515.
+- A global scale fails badly. Calibration must be per sensor configuration.
+- **B1 (Kalman), same procedure: fails.** Nominal is 0.69 / 0.82 / 0.87; the conformal per-level
+  variant passes for both.

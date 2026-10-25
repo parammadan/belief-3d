@@ -53,6 +53,13 @@ claim stands (see literature_review).
 - [x] **M3** neural pose · [x] **M4** belief tracking · [x] **M5** active perception (EXP-M5-001 null; EXP-M5-002 confirmed)
 - [x] **M6** closed-loop manipulation · [ ] M7 systems optimisation · [ ] M8 final study
 
+## M8 status
+
+- EXP-M8-001 pre-registered (8 arms incl. new B0/B1 grasp-source arms; 300 test seeds, offset 4000–4299).
+- Running on Explorer: arrays 11354631 (sc0, 6 arms) + 11354632 (sc1, selfcal, 2 arms) → /scratch/madan.pa/belief3d/reports/m8/.
+- When done: copy with `ssh explorer 'cd /scratch/madan.pa/belief3d/reports/m8 && tar cf - exp_m8_001_sc0 exp_m8_001_sc1' | tar xf - -C reports/m8`,
+  then run the analysis command in the registry. Next: results entry, ablation write-up, paper.
+
 ## M7 checklist
 
 - [x] PERF-M7-001: belief update 4.3× faster (matmul, cached symmetry groups)

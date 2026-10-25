@@ -738,3 +738,35 @@ same script (4.7×), so treat 8.3× as timing noise.
   with `SELFCAL=1`. No GPU.
 - **Commitment.** Report every outcome as-is, including nulls and reversals. Any episode lost to
   infrastructure failure is reported, and its seed is re-run unchanged (no seed replacement).
+
+## EXP-M8-002 — PRE-REGISTERED coverage calibration (H2 of docs/research_question.md; code frozen at `4c5c4d5`)
+
+The "H2" in EXP-M4-001 was a different hypothesis (MOTA non-inferiority). This entry tests the
+research question's H2: after held-out calibration, B2's credible regions reach nominal coverage
+within ±5 pp at 50/80/95 %.
+- **Measure.** NEES of the reported 3×3 position covariance per matched track-frame. Scaling the
+  covariance by s divides NEES by s.
+- **Calibration data.** The calibration split (never used before), offset 0, 20 episodes × 15
+  frames, both cameras, for each of occlusion/dynamic × nominal/harsh.
+- **Test data.** 20 never-evaluated test episodes per condition, offset 4400–4419 (after
+  EXP-M8-001's 4000–4299).
+- **Primary.** One scalar per noise preset, s_p = q₀.₈(NEES_calib) / χ²₃(0.8). H2 holds if test
+  coverage is within ±5 pp of nominal at all three levels in both presets (6 checks).
+  Episode-cluster bootstrap CIs are reported.
+- **Secondary (descriptive).**
+  - raw (uncalibrated) coverage;
+  - one global scale, pooling both presets;
+  - per-level split-conformal scales (calibrates each level separately);
+  - the same numbers for B1 (Kalman).
+- **Stated expectation, from val (VAL data only, scratch probe).**
+  - Raw nominal coverage is 1.00 at every level: the covariance carries the calibration
+    allowance (1°, 5 mm), and nominal noise has no calibration error.
+  - The per-preset scale fixes 80 % by construction, but on val it left harsh at 50 % = 0.58 and
+    nominal at 95 % = 0.91. The NEES distribution's shape is not χ²₃, so **H2 is expected to fail**
+    as written.
+  - A global scale fails badly (harsh 0.30/0.60/0.73).
+  - Per-level conformal should hold by construction, up to calibration-to-test shift.
+- **Analysis.** `python experiments/analysis/m8_h2.py reports/m8/h2 --out reports/m8/exp_m8_002_analysis.json`
+- **Compute.** `sbatch --array=0-7 --export=ALL,N=20,CALIB_OFFSET=0,TEST_OFFSET=4400
+  experiments/cluster/h2.sbatch`. CPU only.
+- **Commitment.** Report as-is.

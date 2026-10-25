@@ -64,7 +64,7 @@ claim stands (see literature_review).
 
 - [x] PERF-M7-001: belief update 4.3× faster (matmul, cached symmetry groups)
 - [x] PERF-M7-002/003: proposer inference on V100 (torch fp32/fp16, ORT CUDA 0.48 ms at batch 1)
-- [ ] PERF-M7-004: TensorRT on A100 (V100 is unsupported by TRT 10.16). Job queued
+- [x] PERF-M7-004: TensorRT fp16 on A100, 0.19 ms at b1 (4.9× torch fp32), 161k samples/s at b256, accuracy held
 - [x] PERF-M7-005: C++ free-space kernel (pybind11 + CMake, CI-built), 4.8–6.9× kernel and 3.4× per update, identical particles
 - [x] PERF-M7-006: pose-fit Jacobian batched, 306 → 237 ms per frame (1.29×), bit-identical. Still not real-time
 

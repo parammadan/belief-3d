@@ -770,3 +770,26 @@ within ±5 pp at 50/80/95 %.
 - **Compute.** `sbatch --array=0-7 --export=ALL,N=20,CALIB_OFFSET=0,TEST_OFFSET=4400
   experiments/cluster/h2.sbatch`. CPU only.
 - **Commitment.** Report as-is.
+
+## PERF-M7-004: TensorRT on A100 (A100-SXM4-80GB; ORT 1.22 TensorRT EP, TRT 10.16, fp16; fresh engine cache; device-resident I/O)
+
+| Backend | b1 median | b32 median | b256 median (throughput) | Accuracy (top-1 mm; argmax agree) |
+|---|---|---|---|---|
+| PyTorch fp32 | 0.943 ms | 0.950 ms | 2.664 ms (96k/s) | 4.917 (reference) |
+| PyTorch fp16 autocast | 1.085 ms | 1.105 ms | 2.894 ms (88k/s) | 4.915; 0.9985 |
+| ONNX Runtime CUDA | 0.422 ms | 0.808 ms | 4.369 ms (59k/s) | 4.921; 0.9995 |
+| **TensorRT fp16** | **0.192 ms** | **0.310 ms** | **1.586 ms (161k/s)** | 4.921; 0.9990 |
+
+- **TensorRT is fastest at every batch size.** Against PyTorch fp32 it is 4.9× at b1, 3.1× at b32
+  and 1.7× at b256; against ORT CUDA it is 2.2× at b1. Host copies add 0.06 ms at b1.
+- **Accuracy holds.** Top-1 error is 4.921 mm vs 4.917 mm, and argmax agreement is 0.9990. The
+  largest elementwise rotation difference over all hypotheses is 0.67, which means a few
+  low-weight fp16 hypotheses flip. The selected pose is unaffected at this rate.
+- **Integrity notes.**
+  - The first A100 attempt failed on a harness bug: the accuracy pass fed a 2048 batch beyond the
+    engine profile (max 256). It is fixed by chunking.
+  - The second attempt reused an engine built on an A100-40GB, which TensorRT does not support,
+    and was **discarded**. The benchmark now clears its engine cache on every run.
+  - The run above built its engines fresh.
+- `reports/m7/infer_bench_a100.json`. Model-only latency; the perception pipeline still costs
+  ~237 ms per frame on CPU (PERF-M7-006).

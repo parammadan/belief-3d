@@ -114,14 +114,14 @@ lower the expected failure, plus a travel cost ($\lambda=0.005$).
 matched track centres across views. Only the view-varying part is identifiable (a gauge freedom);
 the grasp centre is corrected by the estimated bias over the views that saw the target.
 
-\textbf{Grasping.} (Figure~\ref{fig:episode}.) A top-down parallel-jaw grasp planned from the target belief's MAP mode,
+\textbf{Grasping.} A top-down parallel-jaw grasp planned from the target belief's MAP mode,
 executed on the simulated Panda; success means the target object is lifted more than 8\,cm
-(evaluator reads simulator state).
+(evaluator reads simulator state; Figure~\ref{fig:episode}).
 
 \section{Experimental protocol}
 Every confirmatory experiment was written into the registry, with frozen commit, seed range,
 primary test and analysis command, before it ran. Episodes are paired: each policy replays the
-same seed, so initial observations are bit-identical. Primary tests are exact two-sided McNemar
+same seed, so initial observations are bit-identical on one machine (Section~\ref{sec:m8}). Primary tests are exact two-sided McNemar
 tests on paired outcomes with Holm correction across a family; we report bootstrap 95\,\% CIs.
 Development used only val seeds. Regime for all policy studies: mug scenes, harsh noise, mobile
 camera only, views at 12/25/45$^\circ$ elevation, physical scoring, one attempt.

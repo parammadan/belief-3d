@@ -4,8 +4,7 @@
 \usepackage[numbers]{natbib}
 \newcommand{\pending}[1]{\colorbox{yellow!40}{\textsf{\small PENDING: #1}}}
 
-\title{Look Where the Grasp Fails: Calibration-Aware Active Viewpoint Selection\\
-over a Multimodal 6D Pose Belief}
+\title{Look Where the Grasp Fails:\\ Calibration-Aware Active Viewpoint Selection\\ over a Multimodal 6D Pose Belief}
 \author{Param Madan}
 \date{October 2026}
 
@@ -33,6 +32,18 @@ those views reveal. After per-sensor-configuration scaling on held-out data, the
 position credible regions reach 50/80/95\,\% coverage within 5 points. All results are
 simulation only.
 \end{abstract}
+
+\begin{figure*}[t]\centering
+\includegraphics[width=0.32\textwidth]{figs/camera.png}\hfill
+\includegraphics[width=0.32\textwidth]{figs/miss.png}\hfill
+\includegraphics[width=0.32\textwidth]{figs/hit.png}
+\caption{One EXP-M8-001 test episode (seed 2{,}004{,}192), same seed for both systems. Left: what the
+robot's mobile RGB-D camera sees (320$\times$240, harsh noise, ${\sim}1^\circ$ extrinsic error). Middle:
+fixed camera; the grasp centre is 29.7\,mm off and the fingers close on nothing. Right: D2 views plus
+self-calibration (3.7\,mm correction); centre error 12.7\,mm and the mug is lifted. Re-run on the M1
+Mac; cluster values for this seed differ slightly (Section~\ref{sec:m8}).}
+\label{fig:episode}
+\end{figure*}
 
 \section{Introduction}
 Active perception for manipulation usually picks the next view to reduce uncertainty: the entropy
@@ -103,7 +114,7 @@ lower the expected failure, plus a travel cost ($\lambda=0.005$).
 matched track centres across views. Only the view-varying part is identifiable (a gauge freedom);
 the grasp centre is corrected by the estimated bias over the views that saw the target.
 
-\textbf{Grasping.} A top-down parallel-jaw grasp planned from the target belief's MAP mode,
+\textbf{Grasping.} (Figure~\ref{fig:episode}.) A top-down parallel-jaw grasp planned from the target belief's MAP mode,
 executed on the simulated Panda; success means the target object is lifted more than 8\,cm
 (evaluator reads simulator state).
 

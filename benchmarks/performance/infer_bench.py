@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import glob
 import json
+import shutil
 import time
 from pathlib import Path
 
@@ -113,7 +114,10 @@ def main() -> None:
         import onnxruntime as ort
         report["onnxruntime"] = ort.__version__
         cache = str(Path(a.out).parent / "trt_cache")
-        Path(cache).mkdir(parents=True, exist_ok=True)
+        # Fresh engines every run: a cache built on another GPU model is unsupported by TensorRT
+        # (an A100-40GB engine was reused on an 80GB card once; that run was discarded).
+        shutil.rmtree(cache, ignore_errors=True)
+        Path(cache).mkdir(parents=True)
         shp = lambda b: f"points:{b}x512x3,cls:{b}"
         trt_opts = {"trt_fp16_enable": True, "trt_engine_cache_enable": True, "trt_engine_cache_path": cache,
                     # Explicit shape profile: without it, dynamic batch re-planned engines (~200 ms/call).

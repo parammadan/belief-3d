@@ -48,7 +48,8 @@ def _bootstrap_ci(values: list[float], n: int = 2000, seed: int = 0) -> list[flo
     return [float(np.percentile(means, 2.5)), float(np.percentile(means, 97.5))]
 
 
-def evaluate(dataset: Path, preds: Path, match_dist: float = 0.05) -> dict:
+def evaluate(dataset: Path, preds: Path, match_dist: float = 0.05, rows_out: list | None = None) -> dict:
+    """rows_out, if given, receives the per matched track-frame rows (errors, NEES, visibility, episode)."""
     manifest = json.loads((dataset / "manifest.json").read_text())
     meta = preds / "meta.json"
     cams = json.loads(meta.read_text())["cameras"] if meta.exists() else manifest["config"]["cameras"]
@@ -113,7 +114,8 @@ def evaluate(dataset: Path, preds: Path, match_dist: float = 0.05) -> dict:
                 e = pose_errors(spec, np.array(trk["T_WO"]), np.array(o["T_WO"]))
                 err = np.array(trk["T_WO"])[:3, 3] - np.array(o["T_WO"])[:3, 3]
                 cov = np.array(trk["pos_cov"]) + np.eye(3) * 1e-12
-                e |= {"shape": spec.shape, "vis": vis[o["instance_id"]], "nees": float(err @ np.linalg.solve(cov, err))}
+                e |= {"shape": spec.shape, "vis": vis[o["instance_id"]], "nees": float(err @ np.linalg.solve(cov, err)),
+                      "episode": eid, "frame": k}
                 trk_rows.append(e)
             dist_sum += sum(D[i, j] for i, j in zip(r, cidx) if D[i, j] <= match_dist)
             n_match += len(pairs)
@@ -197,6 +199,8 @@ def evaluate(dataset: Path, preds: Path, match_dist: float = 0.05) -> dict:
                                "latency_frames_median": float(np.median(recov["latency_frames"]))
                                if recov["latency_frames"] else None},
     }
+    if rows_out is not None:
+        rows_out.extend(trk_rows)
     return report
 
 
@@ -217,8 +221,13 @@ if __name__ == "__main__":
     ap.add_argument("dataset")
     ap.add_argument("preds")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--rows", default=None, help="write per track-frame rows (NEES etc.) as JSON lines")
     a = ap.parse_args()
-    rep = evaluate(Path(a.dataset), Path(a.preds))
+    rows: list = []
+    rep = evaluate(Path(a.dataset), Path(a.preds), rows_out=rows)
+    if a.rows:
+        Path(a.rows).write_text("".join(json.dumps({k: (float(v) if isinstance(v, np.floating) else v)
+                                                    for k, v in r.items()}) + "\n" for r in rows))
     s = json.dumps(rep, indent=1)
     if a.out:
         Path(a.out).write_text(s)

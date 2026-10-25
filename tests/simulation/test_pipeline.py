@@ -58,3 +58,18 @@ def test_perceive_end_to_end_clean():
     for d in res.detections:
         dist = min(np.linalg.norm(d.T_WO[:3, 3] - ob.T_WO[:3, 3]) for ob in G.values())
         assert dist < 0.003 and d.completeness > 0.6
+
+
+def test_batched_jacobian_gives_identical_fits():
+    """PERF-M7-006: the batched finite-difference Jacobian must not change any fit."""
+    from perception.pose.primitive_fit import fit_hypotheses
+    rng = np.random.default_rng(4)
+    n, d = np.array([0.0, 0, 1]), -0.4
+    for name in ("box_red", "cyl_green", "sphere_blue", "mug_cyan"):
+        spec = SPEC[name]
+        P_O = rng.uniform(-0.03, 0.03, (300, 3))
+        P_W = se3.transform_points(se3.make_T(se3.so3_exp([0, 0, 0.4]), [0.0, 0.0, 0.43]), P_O)
+        for sup in (0.005, None):
+            A = fit_hypotheses(spec, P_W, n, d, 0.002, support_sigma=sup, fast_jac=False)
+            B = fit_hypotheses(spec, P_W, n, d, 0.002, support_sigma=sup, fast_jac=True)
+            assert all(np.array_equal(a.T_WO, b.T_WO) and a.cost == b.cost for a, b in zip(A, B))

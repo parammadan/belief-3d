@@ -132,8 +132,10 @@ def main() -> None:
                     report["backends"][name] = {"unavailable": f"requested {wanted}, got {used} (fallback)"}
                     continue
                 row = {"providers_used": used}
-                full = {"points": pts, "cls": cls}
-                row["accuracy"] = accuracy(sess.run(None, full))
+                # Chunk to the largest benchmarked batch: TensorRT rejects shapes outside its profile.
+                ch = max(batches)
+                parts = [sess.run(None, {"points": pts[i:i + ch], "cls": cls[i:i + ch]}) for i in range(0, len(pts), ch)]
+                row["accuracy"] = accuracy([np.concatenate([p[k] for p in parts]) for k in range(len(parts[0]))])
                 for b in batches:
                     # Host->device copies included (what a numpy caller pays) ...
                     feed = {"points": pts[:b], "cls": cls[:b]}

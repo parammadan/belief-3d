@@ -33,6 +33,8 @@ from scipy.optimize import least_squares
 from data.schemas.objects import ObjectSpec
 from perception.geometry import se3
 
+_FD_EPS = np.finfo(np.float64).eps ** 0.5      # scipy's default 2-point relative step
+
 
 def sdf(spec: ObjectSpec, P: np.ndarray) -> np.ndarray:
     """Signed distance (m) of object-frame points to the primitive surface."""
@@ -134,6 +136,7 @@ def fit_hypotheses(
     seed: int = 0,
     support_sigma: float | None = 0.005,
     extra_inits: list[np.ndarray] | None = None,
+    fast_jac: bool = True,
 ) -> list[PoseEstimate]:
     """All local optima from the initialisations, best (lowest robust cost) first.
 
@@ -158,8 +161,24 @@ def fit_hypotheses(
                 return r
             return np.append(r, w_sup * lowest_point_height(spec, R, t0 + x[3:], plane_n, plane_d))
 
-        sol = least_squares(resid, np.zeros(6), loss="soft_l1", f_scale=f_scale, x_scale=[0.1] * 3 + [0.01] * 3,
-                            max_nfev=200)
+        def jac(x, R0=R0, t0=t0, w_sup=w_sup):
+            # scipy's 2-point rule (same steps), but the base point and all 6 perturbations go through
+            # one batched sdf call. The per-column residual calls were 60 % of perceive() (PERF-M7-006).
+            h = _FD_EPS * ((x >= 0) * 2.0 - 1.0) * np.maximum(1.0, np.abs(x))
+            X = np.vstack([x, x + np.diag(h)])
+            dx = (X[1:] - x).diagonal()
+            R4 = [R0 @ se3.so3_exp(xi[:3]) for xi in X[:4]]
+            Rs = R4 + [R4[0]] * 3                         # rows 4-6 perturb translation only
+            ts = t0 + X[:, 3:]
+            Q = np.matmul(P[None] - ts[:, None], np.asarray(Rs))
+            F = sdf(spec, Q.reshape(-1, 3)).reshape(7, -1)
+            if w_sup:
+                g = [w_sup * lowest_point_height(spec, R, t, plane_n, plane_d) for R, t in zip(Rs, ts)]
+                F = np.column_stack([F, g])
+            return ((F[1:] - F[0]) / dx[:, None]).T
+
+        sol = least_squares(resid, np.zeros(6), jac=jac if fast_jac else "2-point", loss="soft_l1",
+                            f_scale=f_scale, x_scale=[0.1] * 3 + [0.01] * 3, max_nfev=200)
         T = se3.make_T(R0 @ se3.so3_exp(sol.x[:3]), t0 + sol.x[3:])
         r = resid(sol.x)[: len(P)]
         out.append(PoseEstimate(spec.name, T, float(np.sqrt(np.mean(r**2))), len(P_W), float(sol.cost)))

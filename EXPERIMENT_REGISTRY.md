@@ -677,3 +677,19 @@ same script (4.7×), so treat 8.3× as timing noise.
   1e-9). The surface SDF term, resampling and MCMC are still NumPy.
 - **Not done:** multithreading. Apple clang ships without OpenMP, and the loop over particles is
   embarrassingly parallel, so this is the next step if it is needed.
+
+## PERF-M7-006: pose-fit Jacobian (M1 Mac; 6 harsh frames, 5 reps, median)
+
+- **Profile before:** `perceive()` took ~278–306 ms per frame. Pose fitting was 87 % of that, and
+  scipy's 2-point finite-difference Jacobian was ~60 % (6 separate residual calls per Jacobian,
+  each with Python overhead).
+- **Change:** `fit_hypotheses(..., fast_jac=True)` (the default). It applies the same 2-point
+  rule with the same steps, but the base point and all 6 perturbations go through one batched
+  `sdf` call. The three translation columns reuse the base rotation.
+- **Result:** 306 → 237 ms per frame (**1.29×**). Every pose and cost is **bit-identical** to
+  scipy's Jacobian (`test_batched_jacobian_gives_identical_fits`; benchmark check over all
+  detections), so earlier experiments replay unchanged.
+- **What remains:** scipy's trust-region internals and small-array NumPy calls, about 24
+  iterations × 4.5 initialisations per segment. Further gains need an algorithmic change, such as
+  fewer initialisations (pruning by early cost) or an analytic Jacobian. Either would change
+  results, so it needs its own accuracy check. Perception is still not real-time on CPU.

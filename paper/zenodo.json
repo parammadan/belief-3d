@@ -1,0 +1,11 @@
+{
+  "upload_type": "publication",
+  "publication_type": "preprint",
+  "title": "Look Where the Grasp Fails: Calibration-Aware Active Viewpoint Selection over a Multimodal 6D Pose Belief",
+  "creators": [{"name": "Madan, Param"}],
+  "description": "Pre-registered simulation study (MuJoCo, Franka Panda) of active camera viewpoint selection for grasping. A task-risk view objective that treats calibration as exact does not help; modelling view-dependent extrinsic calibration bias (D2) beats entropy and covariance objectives, and online self-calibration adds a further gain. Final study (299 paired episodes): full system 0.773 vs Kalman-tracking baseline 0.488 grasp success. Simulation only. Code, experiment registry and all results: https://github.com/parammadan/belief-3d",
+  "keywords": ["active perception", "6D pose estimation", "particle filter", "camera calibration", "robotic grasping", "pre-registration", "MuJoCo"],
+  "related_identifiers": [{"identifier": "https://github.com/parammadan/belief-3d", "relation": "isSupplementedBy", "resource_type": "software"}],
+  "license": "cc-by-4.0",
+  "language": "eng"
+}

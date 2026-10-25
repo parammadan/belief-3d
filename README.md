@@ -27,6 +27,20 @@ held-out test split, with the method frozen first; most were pre-registered. See
 The take-away so far: *a task-aware view objective helps only when its loss model contains the
 error that actually limits the task* — here view-dependent calibration bias, not pose ambiguity.
 
+## What the cameras see
+
+| Overhead camera | Mobile camera |
+|---|---|
+| ![](reports/m0/overhead_rgb.png) | ![](reports/m0/mobile_rgb.png) |
+
+Depth back-projected through the camera model lands within 0.3 mm of the true sphere surface
+([EXP-M0-001](EXPERIMENT_REGISTRY.md)).
+
+Controlled occlusion (EXP-M1-002). The top row is overhead, where the plate fully hides the
+blue sphere. The bottom row is the mobile camera, which can still see it:
+
+![](reports/m1/occlusion_strip.png)
+
 ## Quickstart
 
 ```bash

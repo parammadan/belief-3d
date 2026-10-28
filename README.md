@@ -11,7 +11,7 @@ hypothesis. Prior work that overlaps with it is listed in
 
 ## Status
 
-**M0–M5 complete; M6 in progress.** Simulation only. Every result below comes from a
+**M0–M8 complete** (paper draft in `paper/`). Simulation only. Every result below comes from a
 held-out test split, with the method frozen first; most were pre-registered. See
 [`EXPERIMENT_REGISTRY.md`](EXPERIMENT_REGISTRY.md).
 
@@ -23,6 +23,9 @@ held-out test split, with the method frozen first; most were pre-registered. See
 | M5 active vision (1) | **Pre-registered: H3 not supported.** Task-risk view selection ignoring calibration never moved and tied with fixed (0.49); *random* won (0.63). |
 | M5 + self-calibration | **Pre-registered: confirmed.** Online extrinsic self-calibration from known objects across diverse views: 0.767 vs 0.640 without (+0.127, p = 0.003). A fixed camera shows exactly 0 effect, as predicted. Full system vs fixed camera: 0.513 → 0.767. |
 | M5 active vision (2) | **Pre-registered: confirmed.** Calibration-aware task-risk: 0.667 vs 0.533 (entropy / covariance) and 0.520 (original), Holm p = 0.008. It picks views whose calibration biases cancel; ≈ random (+0.03, n.s.). |
+| M6 closed loop | Physics-executed pick-and-place with recovery: 0.50 (fixed) vs 0.64 (calibration-aware views), 100 paired episodes. Pre-registered H6 (recovery helps) **not supported**. |
+| M7 systems | Belief update 4.3× faster; TensorRT fp16 proposer 0.19 ms at batch 1; C++ (pybind11) free-space kernel 3.4× per update with identical particles. Still not real-time. |
+| M8 final study | **Pre-registered, 299 paired test episodes.** Full system (calibration-aware views + self-cal) 0.773 vs Kalman baseline 0.488 (+0.284, Holm p = 3e-14). Pose estimator alone makes no difference with a fixed camera (B0 ≈ B1 ≈ B2). Calibrated belief covariance coverage within ±5 pp (EXP-M8-002). |
 
 The take-away so far: *a task-aware view objective helps only when its loss model contains the
 error that actually limits the task* — here view-dependent calibration bias, not pose ambiguity.
